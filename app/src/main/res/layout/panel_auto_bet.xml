@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+    <TextView style="@style/CardLabel" android:text="Crash — автоставки" android:layout_marginTop="0dp" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/textDim" android:textSize="12sp"
+        android:text="Ставка отправляется один раз в раунде, только пока status=1. Для работы оставьте фоновую службу подключённой к cs2a.run." />
+    <TextView style="@style/CardLabel" android:text="Сумма ставки ($)" />
+    <EditText android:id="@+id/betAmount" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal" android:text="0.10" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <Button android:id="@+id/betHalf" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="÷2" />
+        <Button android:id="@+id/betDouble" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="×2" android:layout_marginStart="6dp" />
+    </LinearLayout>
+    <Switch android:id="@+id/betAllIn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="ALL IN — весь доступный баланс каждый раунд" android:textColor="@color/text" android:layout_marginTop="6dp" />
+    <TextView style="@style/CardLabel" android:text="Автовывод (коэффициент)" />
+    <EditText android:id="@+id/betAuto" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal" android:text="1.25" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
+    <TextView style="@style/CardLabel" android:text="Количество раундов" />
+    <EditText android:id="@+id/betRounds" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="number" android:text="5" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="10dp">
+        <Button android:id="@+id/betStart" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="▶ Старт" />
+        <Button android:id="@+id/betStop" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="■ Стоп" android:layout_marginStart="8dp" />
+    </LinearLayout>
+    <TextView android:id="@+id/autoBetStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Остановлено" android:textColor="@color/textDim" android:layout_marginTop="8dp" />
+    <TextView android:id="@+id/autoBetLog" style="@style/LogText" android:text="" />
+</LinearLayout>
