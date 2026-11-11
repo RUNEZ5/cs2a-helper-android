@@ -36,8 +36,8 @@ class CrashForegroundService : Service() {
     private var roundsLimit = 1
     private var placed = 0
     private var lastRoundKey = ""
-    private var lastStartAt = 0L
     private var requestInFlight = false
+    private var bettingWindowOpen = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -60,8 +60,8 @@ class CrashForegroundService : Service() {
                 }
                 placed = 0
                 lastRoundKey = ""
-                lastStartAt = 0L
                 requestInFlight = false
+                bettingWindowOpen = false
                 running = true
                 startForeground(NOTIF_ID, notification("Ожидание начала раунда…"))
                 CrashState.set(true, "Ожидание раунда")
@@ -92,18 +92,22 @@ class CrashForegroundService : Service() {
     }
 
     private fun onCrashEvent(event: String, payload: JSONObject) {
-        if (!running || event != "start" || requestInFlight || placed >= roundsLimit) return
-        if (payload.has("status") && payload.optInt("status", -1) != 1) return
-
-        val now = SystemClock.elapsedRealtime()
-        val roundKey = firstString(payload, arrayOf("roundId", "gameId", "crashId", "id"))
-        if (roundKey.isNotBlank()) {
-            if (roundKey == lastRoundKey) return
-            lastRoundKey = roundKey
-        } else if (now - lastStartAt < 1800L) {
+        if (!running) return
+        val status = findIntField(payload, "status")
+        if (event == "crash" || status == 2) {
+            bettingWindowOpen = false
+            lastRoundKey = ""
             return
         }
-        lastStartAt = now
+        // Fail closed: no bet unless the server explicitly reports status=1.
+        // Both "start" and repeated "update" frames can describe the betting window.
+        if ((event != "start" && event != "update") || status != 1 || bettingWindowOpen) return
+        bettingWindowOpen = true
+        if (requestInFlight || placed >= roundsLimit) return
+
+        val roundKey = firstString(payload, arrayOf("roundId", "gameId", "crashId", "id"))
+        if (roundKey.isNotBlank() && roundKey == lastRoundKey) return
+        if (roundKey.isNotBlank()) lastRoundKey = roundKey
         requestInFlight = true
         CrashState.set(true, "Раунд замечен · отправляю ставку ${placed + 1}/$roundsLimit")
         updateNotification("Раунд замечен · отправляю ставку")
@@ -139,6 +143,24 @@ class CrashForegroundService : Service() {
                 updateNotification("Ставка отправлена · $placed/$roundsLimit")
             }
         }
+    }
+
+    private fun findIntField(o: JSONObject, key: String, depth: Int = 0): Int? {
+        if (depth > 4) return null
+        if (o.has(key)) {
+            val value = o.opt(key)
+            if (value is Number) return value.toInt()
+            if (value is String) return value.toIntOrNull()
+        }
+        val keys = o.keys()
+        while (keys.hasNext()) {
+            val value = o.opt(keys.next())
+            if (value is JSONObject) {
+                val found = findIntField(value, key, depth + 1)
+                if (found != null) return found
+            }
+        }
+        return null
     }
 
     private fun firstString(o: JSONObject, keys: Array<String>): String {
