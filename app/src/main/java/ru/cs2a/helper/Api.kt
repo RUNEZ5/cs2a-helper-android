@@ -161,6 +161,9 @@ object Api {
         when {
             r.unauthorized -> { ok = false; msg = "ошибка: $AUTH_MSG" }
             d.optString("error") == "CONDITION_ERROR" -> { ok = false; msg = "условия розыгрыша ещё не выполнены ⚠️" }
+            // 403 от сайта на этот эндпоинт в наблюдаемых случаях означает именно
+            // «условия/лимит участия ещё не выполнены», а не ошибку авторизации.
+            r.status == 403 -> { ok = false; msg = "условия розыгрыша ещё не выполнены (403) ⚠️" }
             d.optBoolean("success", true) == false || d.has("error") -> { ok = false; msg = "ошибка: ${d.optString("error").ifBlank { "HTTP ${r.status}" }}" }
             r.status !in 0..399 || r.status == 0 -> { ok = false; msg = "ошибка: HTTP ${r.status}" }
             else -> { ok = true; msg = "участвую ✅" }

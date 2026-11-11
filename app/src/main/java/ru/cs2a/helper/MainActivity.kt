@@ -130,6 +130,15 @@ class MainActivity : AppCompatActivity() {
             TokenStore.setBool("rafflesAuto", on)
             Logs.add(this, "raffles", if (on) "Автоучастие включено" else "Автоучастие выключено", "")
             if (on) {
+                // Пробуем сразу для всех розыгрышей (как кнопка «Участвовать»), а не ждём
+                // целый цикл до первого будильника — иначе выглядит так, будто тумблер
+                // ничего не делает.
+                lifecycleScope.launch {
+                    for (item in LOTTERIES) {
+                        Api.joinLottery(this@MainActivity, item)
+                        refreshLogs()
+                    }
+                }
                 for (item in LOTTERIES) AlarmScheduler.scheduleLottery(this, item.id, item.cycleMin)
             } else {
                 for (item in LOTTERIES) AlarmScheduler.cancelLottery(this, item.id)
