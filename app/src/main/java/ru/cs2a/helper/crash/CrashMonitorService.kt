@@ -11,6 +11,8 @@ import android.os.Looper
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,20 +61,30 @@ class CrashMonitorService : Service() {
         val wv = WebView(this)
         wv.settings.javaScriptEnabled = true
         wv.settings.domStorageEnabled = true
-        wv.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView, url: String?) {
-                try {
-                    val js = assets.open("cs2a_inject.js").bufferedReader().use { it.readText() }
-                    view.evaluateJavascript(js, null)
-                    updateStatus("Подключено к cs2a.run · ожидание ставок")
-                } catch (e: Exception) {
-                    stopWithError("Не удалось подключить монитор: ${e.message}")
-                }
-            }
-        }
         wv.addJavascriptInterface(Bridge(), "AndroidBridge")
         webView = wv
-        wv.loadUrl(ORIGIN)
+        try {
+            val js = assets.open("cs2a_inject.js").bufferedReader().use { it.readText() }
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                WebViewCompat.addDocumentStartJavaScript(wv, js, setOf(ORIGIN))
+                wv.webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView, url: String?) {
+                        updateStatus("Подключено к cs2a.run · ожидание ставок")
+                    }
+                }
+            } else {
+                // Older WebView fallback; event capture may begin after initial page scripts.
+                wv.webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView, url: String?) {
+                        view.evaluateJavascript(js, null)
+                        updateStatus("Подключено к cs2a.run · ожидание ставок (совместимый режим)")
+                    }
+                }
+            }
+            wv.loadUrl(ORIGIN)
+        } catch (e: Exception) {
+            stopWithError("Не удалось подключить монитор: ${e.message}")
+        }
     }
 
     private fun handleCrashEvent(event: JSONObject) {
