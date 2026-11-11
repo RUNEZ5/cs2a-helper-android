@@ -212,6 +212,7 @@ class CrashForegroundService : Service() {
 
     override fun onDestroy() {
         running = false
+        CrashState.set(false, "Служба остановлена")
         scope.cancel()
         webView?.stopLoading()
         webView?.destroy()
