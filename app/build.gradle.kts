@@ -19,6 +19,19 @@ android {
         versionName = "1.0.$ciVersionCode"
     }
 
+    // Стабильный debug-keystore, зафиксированный в репозитории: без него каждый прогон CI
+    // подписывал apk новым случайным ключом (свой ~/.android/debug.keystore на каждой машине),
+    // и Android отказывался ставить «обновление», потому что сертификат не совпадал с уже
+    // установленным — «пакет конфликтует с уже существующим».
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
