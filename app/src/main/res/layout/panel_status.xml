@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView android:id="@+id/tokenStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Токен: не получен" android:textColor="@color/text" />
+    <Button android:id="@+id/loginBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Войти на cs2a.run" android:layout_marginTop="10dp" />
+    <Button android:id="@+id/logoutBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Выйти (забыть токен)" android:layout_marginTop="6dp" />
+    <Button android:id="@+id/batteryBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Отключить ограничение батареи для приложения" android:layout_marginTop="14dp" />
+
+    <TextView style="@style/CardLabel" android:text="О приложении" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/textDim" android:textSize="12sp"
+        android:text="Ферма, кэшбек и розыгрыши работают в фоне через системный планировщик — не нужно держать приложение открытым. Спам в чат работает только пока включена фоновая служба (уведомление в шторке) — для надёжности отключите ограничение батареи выше." />
+</LinearLayout>

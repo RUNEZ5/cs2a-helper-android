@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView style="@style/CardLabel" android:text="Сначала один раз обучите формат отправки" android:layout_marginTop="0dp" />
+    <Button android:id="@+id/spamTeachBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Обучить формат (открыть чат)" />
+    <TextView android:id="@+id/spamTplStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Формат пока не записан" android:textColor="@color/textDim" android:textSize="12sp" android:layout_marginTop="4dp" />
+
+    <TextView style="@style/CardLabel" android:text="Сообщение" />
+    <EditText android:id="@+id/spamText" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
+
+    <TextView style="@style/CardLabel" android:text="Пауза, мс" />
+    <EditText android:id="@+id/spamDelay" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="number" android:text="1900" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="10dp">
+        <Button android:id="@+id/spamStartBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Запустить" />
+        <Button android:id="@+id/spamStopBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Стоп" android:layout_marginStart="8dp" />
+    </LinearLayout>
+
+    <TextView android:id="@+id/spamStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Остановлено" android:textColor="@color/textDim" android:layout_marginTop="8dp" />
+    <TextView android:id="@+id/spamLog" style="@style/LogText" android:text="" />
+</LinearLayout>

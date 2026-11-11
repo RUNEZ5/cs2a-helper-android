@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView style="@style/CardLabel" android:text="Яйцо фермы (раз в сутки, 03:00 МСК)" android:layout_marginTop="0dp" />
+    <Spinner android:id="@+id/farmEggSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" />
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="8dp">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Автозабор яйца" android:textColor="@color/text" />
+        <Switch android:id="@+id/farmAutoSwitch" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Продавать открытый предмет" android:textColor="@color/text" />
+        <Switch android:id="@+id/farmSellSwitch" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+    </LinearLayout>
+
+    <Button android:id="@+id/farmClaimBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Забрать яйцо сейчас" android:layout_marginTop="6dp" />
+
+    <TextView style="@style/CardLabel" android:text="Кэшбек (раз в сутки, 03:00 МСК)" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Автокэшбек" android:textColor="@color/text" />
+        <Switch android:id="@+id/cashbackAutoSwitch" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+    </LinearLayout>
+    <Button android:id="@+id/cashbackClaimBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Кэшбек сейчас" android:layout_marginTop="6dp" />
+
+    <TextView android:id="@+id/farmLog" style="@style/LogText" android:text="" />
+</LinearLayout>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg">
+
+    <TextView android:id="@+id/loginHint" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:padding="10dp" android:textColor="@color/text" android:textSize="13sp"
+        android:text="Войдите в свой аккаунт на сайте. Если обучаете формат спама — после входа один раз напишите любое сообщение в чат вручную, затем нажмите «Готово»." />
+
+    <WebView android:id="@+id/webView" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+
+    <Button android:id="@+id/doneBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Готово" android:layout_margin="10dp" />
+</LinearLayout>
