@@ -17,6 +17,7 @@
         <Button android:id="@+id/tabFarm" style="@style/TabBtn" android:text="🐔 Ферма" />
         <Button android:id="@+id/tabRaffles" style="@style/TabBtn" android:text="🎟 Розыгрыши" />
         <Button android:id="@+id/tabSpam" style="@style/TabBtn" android:text="💬 Спам" />
+        <Button android:id="@+id/tabCrash" style="@style/TabBtn" android:text="📈 Crash" />
         <Button android:id="@+id/tabStatus" style="@style/TabBtn" android:text="⚙ Статус" />
     </LinearLayout>
 
@@ -33,6 +34,7 @@
             <include layout="@layout/panel_farm" android:id="@+id/panelFarm" />
             <include layout="@layout/panel_raffles" android:id="@+id/panelRaffles" />
             <include layout="@layout/panel_spam" android:id="@+id/panelSpam" />
+            <include layout="@layout/panel_crash" android:id="@+id/panelCrash" />
             <include layout="@layout/panel_status" android:id="@+id/panelStatus" />
         </FrameLayout>
     </ScrollView>
