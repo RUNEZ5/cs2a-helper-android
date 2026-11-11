@@ -16,11 +16,15 @@ class App : Application() {
             nm.createNotificationChannel(
                 NotificationChannel(CHANNEL_SPAM, "Спам в чат (служба)", NotificationManager.IMPORTANCE_LOW)
             )
+            nm.createNotificationChannel(
+                NotificationChannel(CHANNEL_CRASH, "Автоставки Crash", NotificationManager.IMPORTANCE_LOW)
+            )
         }
     }
 
     companion object {
         const val CHANNEL_BG = "cs2a_bg"
         const val CHANNEL_SPAM = "cs2a_spam"
+        const val CHANNEL_CRASH = "cs2a_crash"
     }
 }
