@@ -7,4 +7,5 @@
     <color name="textDim">#9aa4c7</color>
     <color name="ok">#5ee38f</color>
     <color name="bad">#ff8a98</color>
+    <color name="surface">#232d4d</color>
 </resources>
