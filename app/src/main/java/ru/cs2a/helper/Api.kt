@@ -171,4 +171,24 @@ object Api {
         Logs.add(ctx, "raffles", "${item.name}: $msg", if (ok) "ok" else if (msg.contains("услов")) "" else "bad")
         return ok
     }
+
+    // ---------------- Crash auto-bet ----------------
+    // Balance is refreshed before every bet; ALL IN must never reuse a stale balance.
+    suspend fun crashBalance(): Double {
+        val r = call("/current-state?montaznayaPena=${System.currentTimeMillis()}", "GET")
+        if (r.unauthorized) throw IllegalStateException(AUTH_MSG)
+        if (r.error != null) throw IllegalStateException(r.error)
+        if (r.status !in 200..299) throw IllegalStateException("current-state: HTTP ${r.status}")
+        val root = r.data?.optJSONObject("data") ?: r.data ?: throw IllegalStateException("пустой current-state")
+        val wallet = root.optJSONObject("auth")?.optJSONObject("wallet") ?: root.optJSONObject("wallet")
+            ?: throw IllegalStateException("не найден data.auth.wallet")
+        val balance = wallet.optDouble("balance", Double.NaN)
+        if (!balance.isFinite() || balance < 0.0) throw IllegalStateException("некорректный wallet.balance")
+        return balance
+    }
+
+    suspend fun createCrashBet(auto: Double, amount: Double): ApiResult {
+        val body = JSONObject().put("auto", auto).put("amount", amount)
+        return call("/v1/crash/create-bet", "POST", body)
+    }
 }
