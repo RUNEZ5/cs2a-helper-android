@@ -46,8 +46,33 @@
   var NativeWS = window.WebSocket;
   var nativeSend = NativeWS.prototype.send;
   A.nativeSend = function (ws, data) { return nativeSend.call(ws, data); };
+  function routeCrashFrame(raw) {
+    if (typeof raw !== 'string' || raw.indexOf('csgorun:crash') < 0) return;
+    var root;
+    try { root = JSON.parse(raw); } catch (e) { return; }
+    var found = [];
+    function walk(v, depth) {
+      if (depth > 8 || v == null) return;
+      if (typeof v === 'string') {
+        var t = v.trim();
+        if ((t.charAt(0) === '{' || t.charAt(0) === '[') && t.length < 20000) {
+          try { walk(JSON.parse(t), depth + 1); } catch (e) {}
+        }
+        return;
+      }
+      if (typeof v !== 'object') return;
+      if (!Array.isArray(v) && (v.type === 'start' || v.type === 'update' || v.type === 'crash')) found.push(v);
+      if (Array.isArray(v)) v.forEach(function (x) { walk(x, depth + 1); });
+      else Object.keys(v).forEach(function (k) { walk(v[k], depth + 1); });
+    }
+    walk(root, 0);
+    found.forEach(function (e) {
+      emit('crash-event', { event: { type:e.type, id:e.id == null ? null : e.id, status:e.status == null ? null : e.status, delta:e.delta == null ? null : e.delta, crash:e.crash == null ? null : e.crash } });
+    });
+  }
   A.onIncoming = function (ws, data) {
     if (typeof data !== 'string') return;
+    try { routeCrashFrame(data); } catch (e) {}
     for (var i = 0; i < A.inHooks.length; i++) { try { A.inHooks[i]('ws', data, ws); } catch (e) {} }
   };
   A.onOutgoing = function (ws, data) {
