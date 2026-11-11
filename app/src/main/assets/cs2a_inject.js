@@ -46,8 +46,21 @@
   var NativeWS = window.WebSocket;
   var nativeSend = NativeWS.prototype.send;
   A.nativeSend = function (ws, data) { return nativeSend.call(ws, data); };
+  function forwardCrashEvent(frame) {
+    try {
+      var pos = frame.indexOf('[');
+      if (pos < 0) return;
+      var packet = JSON.parse(frame.slice(pos));
+      if (!Array.isArray(packet) || typeof packet[0] !== 'string') return;
+      var eventName = packet[0].split(':').pop();
+      if (eventName !== 'start' && eventName !== 'update' && eventName !== 'crash') return;
+      var payload = packet.length > 1 && packet[1] && typeof packet[1] === 'object' ? packet[1] : {};
+      emit('crash-event', { event: eventName, payload: payload });
+    } catch (e) {}
+  }
   A.onIncoming = function (ws, data) {
     if (typeof data !== 'string') return;
+    if (data.length < 12000) forwardCrashEvent(data);
     for (var i = 0; i < A.inHooks.length; i++) { try { A.inHooks[i]('ws', data, ws); } catch (e) {} }
   };
   A.onOutgoing = function (ws, data) {
