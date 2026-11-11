@@ -24,6 +24,7 @@ class App : Application() {
 
     companion object {
         const val CHANNEL_BG = "cs2a_bg"
-        const val CHANNEL_SPAM = "cs2a_spam"\n        const val CHANNEL_CRASH = "cs2a_crash"
+        const val CHANNEL_SPAM = "cs2a_spam"
+        const val CHANNEL_CRASH = "cs2a_crash"
     }
 }
