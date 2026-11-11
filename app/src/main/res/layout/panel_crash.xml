@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+    <TextView style="@style/CardLabel" android:text="Автоставки Crash" android:layout_marginTop="0dp" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="Ставка отправляется на событие start (status=1, если поле присутствует). Укажите конечное число раундов."
+        android:textColor="@color/textDim" android:textSize="12sp" />
+    <TextView style="@style/CardLabel" android:text="Сумма ставки" />
+    <EditText android:id="@+id/crashAmount" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:inputType="numberDecimal" android:text="0.10" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <Button android:id="@+id/crashHalfBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="÷2" />
+        <Button android:id="@+id/crashDoubleBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="×2" android:layout_marginStart="6dp" />
+    </LinearLayout>
+    <TextView style="@style/CardLabel" android:text="Авто-вывод (множитель)" />
+    <EditText android:id="@+id/crashAuto" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:inputType="numberDecimal" android:text="1.25" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
+    <TextView style="@style/CardLabel" android:text="Количество раундов (1–500)" />
+    <EditText android:id="@+id/crashRounds" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:inputType="number" android:text="5" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="10dp">
+        <Button android:id="@+id/crashStartBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Запустить" />
+        <Button android:id="@+id/crashStopBtn" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Стоп" android:layout_marginStart="8dp" />
+    </LinearLayout>
+    <TextView android:id="@+id/crashStatus" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="Остановлено" android:textColor="@color/textDim" android:layout_marginTop="8dp" />
+</LinearLayout>
