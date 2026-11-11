@@ -8,6 +8,8 @@
     <Button android:id="@+id/loginBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Войти на cs2a.run" android:layout_marginTop="10dp" />
     <Button android:id="@+id/logoutBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Выйти (забыть токен)" android:layout_marginTop="6dp" />
     <Button android:id="@+id/batteryBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Отключить ограничение батареи для приложения" android:layout_marginTop="14dp" />
+    <Button android:id="@+id/updateBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Проверить обновления" android:layout_marginTop="6dp" />
+    <TextView android:id="@+id/appVersion" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/textDim" android:textSize="11sp" android:layout_marginTop="4dp" />
 
     <TextView style="@style/CardLabel" android:text="О приложении" />
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/textDim" android:textSize="12sp"

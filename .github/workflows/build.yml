@@ -5,6 +5,9 @@ on:
     branches: [main, master]
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,11 +23,25 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      # Номер прогона — он же versionCode приложения и тег релиза (v<run_number>).
+      # Автообновление в приложении сравнивает BuildConfig.VERSION_CODE с этим тегом.
       - name: Build debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleDebug -PappVersionCode=${{ github.run_number }} --stacktrace
 
-      - name: Upload APK
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/cs2a-helper-v${{ github.run_number }}.apk
+
+      - name: Upload APK (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: cs2a-helper-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish GitHub Release (для автообновления в приложении)
+        run: |
+          gh release create "v${{ github.run_number }}" \
+            "app/build/outputs/apk/debug/cs2a-helper-v${{ github.run_number }}.apk" \
+            --title "Сборка ${{ github.run_number }}" \
+            --notes "Автосборка из коммита ${{ github.sha }}."
+        env:
+          GH_TOKEN: ${{ github.token }}

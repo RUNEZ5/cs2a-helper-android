@@ -19,11 +19,13 @@ import android.widget.Spinner
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import ru.cs2a.helper.alarm.AlarmScheduler
 import ru.cs2a.helper.spam.SpamForegroundService
+import ru.cs2a.helper.update.UpdateManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -55,6 +57,28 @@ class MainActivity : AppCompatActivity() {
         setupSpam()
         setupStatus()
         refreshLoop()
+        checkForUpdate(silent = true)
+    }
+
+    // ---------------- Обновления (GitHub Releases) ----------------
+    private fun checkForUpdate(silent: Boolean) {
+        lifecycleScope.launch {
+            val info = UpdateManager.checkLatest()
+            if (info == null) {
+                if (!silent) Toast.makeText(this@MainActivity, "Обновлений нет — у вас последняя версия", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle("Доступно обновление: ${info.versionName}")
+                .setMessage(info.notes.ifBlank { "Новая версия приложения." })
+                .setPositiveButton("Скачать и установить") { _, _ ->
+                    UpdateManager.downloadAndInstall(this@MainActivity, info) {
+                        Toast.makeText(this@MainActivity, "Скачивание начато, уведомление появится по завершении", Toast.LENGTH_LONG).show()
+                    }
+                }
+                .setNegativeButton("Позже", null)
+                .show()
+        }
     }
 
     private fun showTab(name: String) {
@@ -209,6 +233,8 @@ class MainActivity : AppCompatActivity() {
                 startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
             }
         }
+        findViewById<Button>(R.id.updateBtn).setOnClickListener { checkForUpdate(silent = false) }
+        findViewById<TextView>(R.id.appVersion).text = "Версия: ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})"
         refreshStatus()
     }
 

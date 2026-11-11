@@ -7,12 +7,16 @@ android {
     namespace = "ru.cs2a.helper"
     compileSdk = 34
 
+    // Номер сборки прокидывается из CI (-PappVersionCode=<github.run_number>), чтобы версия в
+    // приложении всегда совпадала с номером GitHub Release, который проверяет автообновление.
+    val ciVersionCode = (project.findProperty("appVersionCode") as String?)?.toIntOrNull() ?: 1
+
     defaultConfig {
         applicationId = "ru.cs2a.helper"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = ciVersionCode
+        versionName = "1.0.$ciVersionCode"
     }
 
     buildTypes {
@@ -29,6 +33,7 @@ android {
     }
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 }
 
