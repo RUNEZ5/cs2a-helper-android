@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity() {
     }
     private val panels by lazy {
         mapOf(
+            "autoBet" to findViewById<View>(R.id.panelAutoBet),
             "farm" to findViewById<View>(R.id.panelFarm),
             "raffles" to findViewById<View>(R.id.panelRaffles),
             "spam" to findViewById<View>(R.id.panelSpam),
@@ -54,11 +55,13 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         showTab("farm")
+        findViewById<Button>(R.id.tabAutoBet).setOnClickListener { showTab("autoBet") }
         findViewById<Button>(R.id.tabFarm).setOnClickListener { showTab("farm") }
         findViewById<Button>(R.id.tabRaffles).setOnClickListener { showTab("raffles") }
         findViewById<Button>(R.id.tabSpam).setOnClickListener { showTab("spam") }
         findViewById<Button>(R.id.tabStatus).setOnClickListener { showTab("status") }
 
+        setupAutoBet()
         setupFarm()
         setupRaffles()
         setupSpam()
@@ -229,6 +232,85 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+
+    // ---------------- Crash — ограниченные автоставки ----------------
+    private fun setupAutoBet() {
+        val amount = findViewById<EditText>(R.id.betAmount)
+        val auto = findViewById<EditText>(R.id.betAuto)
+        val rounds = findViewById<EditText>(R.id.betRounds)
+        val allIn = findViewById<Switch>(R.id.betAllIn)
+
+        amount.setText(TokenStore.getString("crashAmount", "0.10"))
+        auto.setText(TokenStore.getString("crashAutoMultiplier", "1.25"))
+        rounds.setText(TokenStore.getInt("crashRounds", 5).toString())
+        allIn.isChecked = TokenStore.getBool("crashAllIn")
+        amount.isEnabled = !allIn.isChecked
+
+        amount.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) { TokenStore.setString("crashAmount", s?.toString().orEmpty()) }
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+        })
+        auto.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) { TokenStore.setString("crashAutoMultiplier", s?.toString().orEmpty()) }
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+        })
+        rounds.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) { s?.toString()?.toIntOrNull()?.let { TokenStore.setInt("crashRounds", it) } }
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+        })
+        allIn.setOnCheckedChangeListener { _, on ->
+            TokenStore.setBool("crashAllIn", on)
+            amount.isEnabled = !on
+        }
+        findViewById<Button>(R.id.betHalf).setOnClickListener {
+            val v = amount.text.toString().toDoubleOrNull() ?: 0.10
+            amount.setText(String.format(Locale.US, "%.2f", (v / 2.0).coerceAtLeast(0.01)))
+        }
+        findViewById<Button>(R.id.betDouble).setOnClickListener {
+            val v = amount.text.toString().toDoubleOrNull() ?: 0.10
+            amount.setText(String.format(Locale.US, "%.2f", (v * 2.0).coerceAtLeast(0.01)))
+        }
+        findViewById<Button>(R.id.betStart).setOnClickListener {
+            val stake = amount.text.toString().toDoubleOrNull() ?: 0.0
+            val multiplier = auto.text.toString().toDoubleOrNull() ?: 0.0
+            val count = rounds.text.toString().toIntOrNull() ?: 0
+            if (!allIn.isChecked && stake <= 0.0) {
+                Toast.makeText(this, "Укажите сумму ставки больше нуля", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (multiplier < 1.0 || !multiplier.isFinite()) {
+                Toast.makeText(this, "Автовывод должен быть не меньше 1.00", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (count !in 1..1000) {
+                Toast.makeText(this, "Количество раундов: от 1 до 1000", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (!TokenStore.isApiTokenValid()) {
+                Toast.makeText(this, "Сначала войдите на cs2a.run во вкладке «Статус»", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            TokenStore.setInt("crashRoundsTotal", count)
+            TokenStore.setInt("crashRoundsDone", 0)
+            TokenStore.setString("crashLastRoundId", "")
+            TokenStore.setBool("crashAutoRunning", true)
+            TokenStore.setString("crashStatus", "Подключаюсь к cs2a.run…")
+            val intent = Intent(this, ru.cs2a.helper.crash.CrashMonitorService::class.java)
+                .setAction(ru.cs2a.helper.crash.CrashMonitorService.ACTION_START)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
+        }
+        findViewById<Button>(R.id.betStop).setOnClickListener {
+            TokenStore.setBool("crashAutoRunning", false)
+            val intent = Intent(this, ru.cs2a.helper.crash.CrashMonitorService::class.java)
+                .setAction(ru.cs2a.helper.crash.CrashMonitorService.ACTION_STOP)
+            startService(intent)
+            TokenStore.setString("crashStatus", "Остановлено вручную")
+        }
+    }
+
     // ---------------- Статус ----------------
     private fun setupStatus() {
         findViewById<Button>(R.id.loginBtn).setOnClickListener { startActivity(Intent(this, LoginActivity::class.java)) }
@@ -266,6 +348,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.farmLog).text = Logs.render(this, "farm")
         findViewById<TextView>(R.id.rafflesLog).text = Logs.render(this, "raffles")
         findViewById<TextView>(R.id.spamLog).text = Logs.render(this, "spam")
+        findViewById<TextView>(R.id.autoBetStatus).text = TokenStore.getString("crashStatus", "Остановлено") + " · " + TokenStore.getInt("crashRoundsDone", 0) + "/" + TokenStore.getInt("crashRoundsTotal", 0)
+        findViewById<TextView>(R.id.autoBetLog).text = Logs.render(this, "crash")
         findViewById<TextView>(R.id.spamTplStatus).text =
             if (TokenStore.getBool("spamHasTemplate")) "Формат записан ✅" else "Формат пока не записан — нажмите «Обучить формат»"
     }
