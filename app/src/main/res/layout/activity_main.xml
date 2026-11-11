@@ -14,6 +14,7 @@
         android:paddingTop="8dp"
         android:paddingBottom="4dp">
 
+        <Button android:id="@+id/tabAutoBet" style="@style/TabBtn" android:text="🎯 Авто" />
         <Button android:id="@+id/tabFarm" style="@style/TabBtn" android:text="🐔 Ферма" />
         <Button android:id="@+id/tabRaffles" style="@style/TabBtn" android:text="🎟 Розыгрыши" />
         <Button android:id="@+id/tabSpam" style="@style/TabBtn" android:text="💬 Спам" />
@@ -30,6 +31,7 @@
             android:layout_height="wrap_content"
             android:padding="14dp">
 
+            <include layout="@layout/panel_auto_bet" android:id="@+id/panelAutoBet" />
             <include layout="@layout/panel_farm" android:id="@+id/panelFarm" />
             <include layout="@layout/panel_raffles" android:id="@+id/panelRaffles" />
             <include layout="@layout/panel_spam" android:id="@+id/panelSpam" />
