@@ -8,7 +8,6 @@ import android.content.Intent
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.os.SystemClock
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -102,8 +101,8 @@ class CrashForegroundService : Service() {
         // Fail closed: no bet unless the server explicitly reports status=1.
         // Both "start" and repeated "update" frames can describe the betting window.
         if ((event != "start" && event != "update") || status != 1 || bettingWindowOpen) return
-        bettingWindowOpen = true
         if (requestInFlight || placed >= roundsLimit) return
+        bettingWindowOpen = true
 
         val roundKey = firstString(payload, arrayOf("roundId", "gameId", "crashId", "id"))
         if (roundKey.isNotBlank() && roundKey == lastRoundKey) return
