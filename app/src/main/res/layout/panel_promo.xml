@@ -35,6 +35,9 @@
     <Button android:id="@+id/promoMonitorBtn" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:text="Начать мониторинг" android:layout_marginTop="6dp" />
 
+    <Button android:id="@+id/promoScanStopBtn" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="Остановить проверку истории" android:layout_marginTop="6dp" />
+
     <TextView style="@style/CardLabel" android:text="Код входа Telegram" />
     <EditText android:id="@+id/promoLoginCode" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:inputType="number" android:singleLine="true" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
