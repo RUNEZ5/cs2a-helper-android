@@ -61,4 +61,6 @@ object TokenStore {
     fun setInt(key: String, v: Int) { plain.edit().putInt(key, v).apply() }
     fun getString(key: String, def: String = ""): String = plain.getString(key, def) ?: def
     fun setString(key: String, v: String) { plain.edit().putString(key, v).apply() }
+    fun saveSecret(key: String, value: String) { if (ready) secure.edit().putString(key, value).apply() }
+    fun getSecret(key: String): String = if (ready) secure.getString(key, "") ?: "" else ""
 }
