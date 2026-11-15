@@ -198,7 +198,6 @@ class PromoTelegramService : Service() {
 
     private fun scanHistory() {
         if (historyScanStarted || chatId == 0L) return
-        if (historyScanStarted) return
         historyScanStarted = true
         historyScanCancelled = false
         historyPagesScanned = 0
@@ -217,7 +216,13 @@ class PromoTelegramService : Service() {
             status("Проверка остановлена: достигнут лимит 10 000 сообщений")
             return
         }
-        client?.send(TdApi.GetChatHistory(chatId, fromMessageId, 0, 100, false)) { result ->
+        val activeClient = client
+        if (activeClient == null) {
+            historyScanStarted = false
+            status("Проверка остановлена: соединение Telegram потеряно")
+            return
+        }
+        activeClient.send(TdApi.GetChatHistory(chatId, fromMessageId, 0, 100, false)) { result ->
             if (historyScanCancelled) return@send
             if (result is TdApi.Messages) {
                 val page = result.messages
