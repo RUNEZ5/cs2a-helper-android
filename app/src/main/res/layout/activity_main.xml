@@ -18,6 +18,7 @@
         <Button android:id="@+id/tabRaffles" style="@style/TabBtn" android:text="🎟 Розыгрыши" />
         <Button android:id="@+id/tabSpam" style="@style/TabBtn" android:text="💬 Спам" />
         <Button android:id="@+id/tabCrash" style="@style/TabBtn" android:text="📈 Crash" />
+        <Button android:id="@+id/tabPromo" style="@style/TabBtn" android:text="🎁 Промо" />
         <Button android:id="@+id/tabStatus" style="@style/TabBtn" android:text="⚙ Статус" />
     </LinearLayout>
 
