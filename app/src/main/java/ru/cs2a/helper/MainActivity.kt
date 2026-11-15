@@ -46,6 +46,7 @@ class MainActivity : AppCompatActivity() {
             "raffles" to findViewById<View>(R.id.panelRaffles),
             "spam" to findViewById<View>(R.id.panelSpam),
             "status" to findViewById<View>(R.id.panelStatus),
+            "promo" to findViewById<View>(R.id.panelPromo),
         )
     }
 
@@ -60,12 +61,14 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.tabRaffles).setOnClickListener { showTab("raffles") }
         findViewById<Button>(R.id.tabSpam).setOnClickListener { showTab("spam") }
         findViewById<Button>(R.id.tabStatus).setOnClickListener { showTab("status") }
+        findViewById<Button>(R.id.tabPromo).setOnClickListener { showTab("promo") }
 
         setupAutoBet()
         setupFarm()
         setupRaffles()
         setupSpam()
         setupStatus()
+        setupPromo()
         refreshLoop()
         checkForUpdate(silent = true)
         ensureNotificationPermission()
@@ -102,6 +105,69 @@ class MainActivity : AppCompatActivity() {
 
     private fun showTab(name: String) {
         for ((k, v) in panels) v.visibility = if (k == name) View.VISIBLE else View.GONE
+    }
+
+
+    // ---------------- Промокоды Telegram ----------------
+    private fun setupPromo() {
+        val apiId = findViewById<EditText>(R.id.promoApiId)
+        val apiHash = findViewById<EditText>(R.id.promoApiHash)
+        val phone = findViewById<EditText>(R.id.promoPhone)
+        val code = findViewById<EditText>(R.id.promoLoginCode)
+        val password = findViewById<EditText>(R.id.promoPassword)
+        val mirror = findViewById<Spinner>(R.id.promoMirror)
+        val period = findViewById<Spinner>(R.id.promoScanPeriod)
+
+        apiId.setText(TokenStore.getString("promoApiId"))
+        apiHash.setText(TokenStore.getSecret("promoApiHash"))
+        phone.setText(TokenStore.getString("promoPhone"))
+        mirror.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, PromoActivator.mirrors)
+        val savedMirror = TokenStore.getString("promoMirror", "cs2a.run")
+        mirror.setSelection(PromoActivator.mirrors.indexOf(savedMirror).coerceAtLeast(0))
+        val periods = listOf("1 день", "3 дня", "7 дней", "14 дней", "30 дней", "90 дней", "365 дней")
+        val periodDays = listOf(1, 3, 7, 14, 30, 90, 365)
+        period.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, periods)
+        period.setSelection(periodDays.indexOf(TokenStore.getInt("promoScanDays", 7)).coerceAtLeast(0))
+
+        findViewById<Button>(R.id.promoStartBtn).setOnClickListener {
+            val id = apiId.text.toString().trim().toIntOrNull()
+            val hash = apiHash.text.toString().trim()
+            val number = phone.text.toString().trim()
+            if (id == null || id <= 0 || hash.isBlank() || number.isBlank()) {
+                Toast.makeText(this, "Заполните API ID, API Hash и номер Telegram", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            if (!TokenStore.isApiTokenValid()) {
+                Toast.makeText(this, "Сначала войдите на выбранное зеркало CS2A во вкладке «Статус»", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            TokenStore.setString("promoApiId", id.toString())
+            TokenStore.saveSecret("promoApiHash", hash)
+            TokenStore.setString("promoPhone", number)
+            TokenStore.setString("promoMirror", PromoActivator.mirrors[mirror.selectedItemPosition])
+            TokenStore.setInt("promoScanDays", periodDays[period.selectedItemPosition])
+            TokenStore.setBool("promoAuto", true)
+            PromoTelegramService.start(this)
+            findViewById<TextView>(R.id.promoStatus).text = "Подключаюсь к Telegram…"
+        }
+        findViewById<Button>(R.id.promoSubmitCodeBtn).setOnClickListener {
+            val value = code.text.toString().trim()
+            if (value.isBlank()) { Toast.makeText(this, "Введите код из Telegram", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
+            PromoTelegramService.submitCode(this, value)
+            code.text.clear()
+        }
+        findViewById<Button>(R.id.promoSubmitPasswordBtn).setOnClickListener {
+            val value = password.text.toString()
+            if (value.isBlank()) { Toast.makeText(this, "Введите пароль 2FA", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
+            PromoTelegramService.submitPassword(this, value)
+            password.text.clear()
+        }
+        findViewById<Button>(R.id.promoStopBtn).setOnClickListener {
+            PromoTelegramService.stop(this)
+            TokenStore.setBool("promoAuto", false)
+            findViewById<TextView>(R.id.promoStatus).text = "Остановлено"
+            ActivityStatusService.sync(this)
+        }
     }
 
     // ---------------- Ферма / кэшбек ----------------
@@ -348,6 +414,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.farmLog).text = Logs.render(this, "farm")
         findViewById<TextView>(R.id.rafflesLog).text = Logs.render(this, "raffles")
         findViewById<TextView>(R.id.spamLog).text = Logs.render(this, "spam")
+        findViewById<TextView>(R.id.promoLog).text = Logs.render(this, "promo")
+        findViewById<TextView>(R.id.promoStatus).text = TokenStore.getString("promoStatus", "Остановлено")
         findViewById<TextView>(R.id.autoBetStatus).text = TokenStore.getString("crashStatus", "Остановлено") + " · " + TokenStore.getInt("crashRoundsDone", 0) + "/" + TokenStore.getInt("crashRoundsTotal", 0)
         findViewById<TextView>(R.id.autoBetLog).text = Logs.render(this, "crash")
         findViewById<TextView>(R.id.spamTplStatus).text =
