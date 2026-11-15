@@ -38,7 +38,12 @@ object PromoActivator {
     fun alreadyProcessed(code: String): Boolean {
         val jwt = TokenStore.jwt() ?: return false
         val history = try { JSONArray(TokenStore.getString(historyKey(jwt), "[]")) } catch (_: Exception) { JSONArray() }
-        for (i in 0 until history.length()) if (history.optJSONObject(i)?.optString("code") == code) return true
+        // A code is considered processed only after confirmed activation.
+        // Failed attempts remain eligible during later history scans/retries.
+        for (i in 0 until history.length()) {
+            val item = history.optJSONObject(i) ?: continue
+            if (item.optString("code") == code && item.optBoolean("activated", false)) return true
+        }
         return false
     }
 

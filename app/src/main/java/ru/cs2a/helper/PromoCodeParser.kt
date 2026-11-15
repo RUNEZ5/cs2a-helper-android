@@ -9,15 +9,17 @@ object PromoCodeParser {
     private val tokenRegex = Regex("(?<![\\p{L}\\p{N}])[\\p{L}\\p{N}]{4,40}(?![\\p{L}\\p{N}])")
     private val numericRegex = Regex("(?<!\\d)\\d{8,32}(?!\\d)")
     private val ignoredWords = setOf("ПРОМОЧАТ", "ПРОМОКОД", "АКЦИЯ", "КУПИТЬ", "ПОДПИСКУ", "ПОДПИСКА", "КЕЙС", "БОНУС", "ДЕПОЗИТ", "ПОПОЛНЕНИЕ", "ПРОМО", "TELEGRAM", "HTTP", "HTTPS", "BOT")
-    private val percentRegex = Regex("(?i)(?:депозит|deposit|пополнен|пополнить|бонус)[^\\n]{0,45}\\+?\\d{1,3}\\s*%|\\+\\s*\\d{1,3}\\s*%[^\\n]{0,45}(?:депозит|deposit|пополнен|бонус)")
+    // Do not submit codes from posts mentioning deposit/top-up requirements,
+    // including fixed-sum and non-percentage conditions.
+    private val depositConditionRegex = Regex("(?i)депозит\\\\w*|deposit\\\\w*|пополн\\\\w*|top\\\\s?up|минимальн\\\\w*\\\\s+(?:депозит|пополн)")
 
-    fun isExplicitDepositPercentBonus(message: String): Boolean =
-        percentRegex.containsMatchIn(message)
+    fun isDepositRelated(message: String): Boolean =
+        depositConditionRegex.containsMatchIn(message)
 
     fun extract(message: String): List<String> = extract(message, emptyList())
 
     fun extract(message: String, entityTexts: List<String>): List<String> {
-        if (message.isBlank() || isExplicitDepositPercentBonus(message)) return emptyList()
+        if (message.isBlank() || isDepositRelated(message)) return emptyList()
         val found = LinkedHashSet<String>()
         entityTexts.forEach { raw ->
             val candidate = normalize(raw)
