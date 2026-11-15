@@ -19,7 +19,10 @@ object PromoCodeParser {
     fun extract(message: String, entityTexts: List<String>): List<String> {
         if (message.isBlank() || isExplicitDepositPercentBonus(message)) return emptyList()
         val found = LinkedHashSet<String>()
-        entityTexts.forEach { normalize(it)?.let(found::add) }
+        entityTexts.forEach { raw ->
+            val candidate = normalize(raw)
+            if (candidate != null && (raw.any(Char::isDigit) || raw == raw.uppercase()) && candidate !in ignoredWords) found.add(candidate)
+        }
 
         // Telegram posts frequently format the code as inline/pre text. Keep these first.
         Regex("`([^`]{4,80})`").findAll(message).forEach { match ->
