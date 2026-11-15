@@ -9,6 +9,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
+import java.security.MessageDigest
 
 object PromoActivator {
     val mirrors = listOf("cs2a.run", "csgouv.run", "cs2run.bet", "cs2b.run", "cs2t.run", "runcase.org", "csgorun.games")
@@ -19,8 +20,14 @@ object PromoActivator {
 
     data class Result(val code: String, val activated: Boolean, val message: String, val status: Int)
 
+    private fun historyKey(jwt: String): String {
+        val hash = MessageDigest.getInstance("SHA-256").digest(jwt.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+        return "promoHistory_$hash"
+    }
+
     fun alreadyProcessed(code: String): Boolean {
-        val history = try { JSONArray(TokenStore.getString("promoHistory", "[]")) } catch (_: Exception) { JSONArray() }
+        val jwt = TokenStore.jwt() ?: return false
+        val history = try { JSONArray(TokenStore.getString(historyKey(jwt), "[]")) } catch (_: Exception) { JSONArray() }
         for (i in 0 until history.length()) if (history.optJSONObject(i)?.optString("code") == code) return true
         return false
     }
@@ -56,7 +63,7 @@ object PromoActivator {
                     root.optString("message").isNotBlank() -> root.optString("message")
                     else -> "HTTP ${response.code}: ${raw.take(180)}"
                 }
-                remember(normalized, mirror, activated, message)
+                remember(normalized, mirror, activated, message, jwt)
                 Result(normalized, activated, message, response.code)
             }
         } catch (e: Exception) {
@@ -64,11 +71,12 @@ object PromoActivator {
         }
     }
 
-    private fun remember(code: String, mirror: String, activated: Boolean, message: String) {
-        val history = try { JSONArray(TokenStore.getString("promoHistory", "[]")) } catch (_: Exception) { JSONArray() }
+    private fun remember(code: String, mirror: String, activated: Boolean, message: String, jwt: String) {
+        val key = historyKey(jwt)
+        val history = try { JSONArray(TokenStore.getString(key, "[]")) } catch (_: Exception) { JSONArray() }
         history.put(JSONObject().put("code", code).put("mirror", mirror)
             .put("activated", activated).put("message", message).put("time", System.currentTimeMillis()))
         while (history.length() > 500) history.remove(0)
-        TokenStore.setString("promoHistory", history.toString())
+        TokenStore.setString(key, history.toString())
     }
 }
