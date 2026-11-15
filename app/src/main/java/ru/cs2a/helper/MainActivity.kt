@@ -120,7 +120,7 @@ class MainActivity : AppCompatActivity() {
 
         apiId.setText(TokenStore.getString("promoApiId"))
         apiHash.setText(TokenStore.getSecret("promoApiHash"))
-        phone.setText(TokenStore.getString("promoPhone"))
+        phone.setText(TokenStore.getSecret("promoPhone"))
         mirror.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, PromoActivator.mirrors)
         val savedMirror = TokenStore.getString("promoMirror", "cs2a.run")
         mirror.setSelection(PromoActivator.mirrors.indexOf(savedMirror).coerceAtLeast(0))
@@ -143,7 +143,7 @@ class MainActivity : AppCompatActivity() {
             }
             TokenStore.setString("promoApiId", id.toString())
             TokenStore.saveSecret("promoApiHash", hash)
-            TokenStore.setString("promoPhone", number)
+            TokenStore.saveSecret("promoPhone", number)
             TokenStore.setString("promoMirror", PromoActivator.mirrors[mirror.selectedItemPosition])
             TokenStore.setInt("promoScanDays", periodDays[period.selectedItemPosition])
             TokenStore.setBool("promoAuto", true)
