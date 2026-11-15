@@ -22,6 +22,9 @@ class App : Application() {
             nm.createNotificationChannel(
                 NotificationChannel(CHANNEL_ACTIVITY, "Работа CS2AHelper", NotificationManager.IMPORTANCE_LOW)
             )
+            nm.createNotificationChannel(
+                NotificationChannel(CHANNEL_PROMO, "Мониторинг промокодов Telegram", NotificationManager.IMPORTANCE_LOW)
+            )
         }
     }
 
@@ -30,5 +33,6 @@ class App : Application() {
         const val CHANNEL_SPAM = "cs2a_spam"
         const val CHANNEL_CRASH = "cs2a_crash"
         const val CHANNEL_ACTIVITY = "cs2a_activity"
+        const val CHANNEL_PROMO = "cs2a_promo"
     }
 }
