@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
 import java.io.File
+import java.security.SecureRandom
 
 class PromoTelegramService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -87,6 +88,13 @@ class PromoTelegramService : Service() {
                         useTestDc = false
                         databaseDirectory = dir.absolutePath
                         filesDirectory = File(dir, "files").apply { mkdirs() }.absolutePath
+                        var dbKey = TokenStore.getSecret("promoDbKey")
+                        if (dbKey.isBlank()) {
+                            val bytes = ByteArray(32).also { SecureRandom().nextBytes(it) }
+                            dbKey = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                            TokenStore.saveSecret("promoDbKey", dbKey)
+                        }
+                        databaseEncryptionKey = android.util.Base64.decode(dbKey, android.util.Base64.NO_WRAP)
                         useFileDatabase = true
                         useChatInfoDatabase = true
                         useMessageDatabase = true
@@ -159,8 +167,16 @@ class PromoTelegramService : Service() {
     }
 
     private fun processMessage(message: TdApi.Message, fromHistory: Boolean) {
-        val content = message.content as? TdApi.MessageText ?: return
-        val formatted = content.text
+        val formatted = when (val content = message.content) {
+            is TdApi.MessageText -> content.text
+            is TdApi.MessagePhoto -> content.caption
+            is TdApi.MessageVideo -> content.caption
+            is TdApi.MessageAnimation -> content.caption
+            is TdApi.MessageDocument -> content.caption
+            is TdApi.MessageAudio -> content.caption
+            is TdApi.MessageVoice -> content.caption
+            else -> return
+        }
         val body = formatted.text ?: return
         val segments = formatted.entities.mapNotNull { entity ->
             val start = entity.offset.coerceAtLeast(0)
