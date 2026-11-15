@@ -1,20 +1,30 @@
 package ru.cs2a.helper
 
 /**
- * Extracts promo-like tokens from Telegram message text.
- * Supports Latin/Cyrillic letters, digits and mixed tokens. Formatting entities are
- * flattened by TDLib into text; backtick-delimited snippets receive extra priority.
+ * Conservative promo parser.
+ * Explicit Telegram code/pre formatting wins; otherwise only a code after a price/case
+ * marker or a standalone uppercase/alphanumeric line is accepted.
  */
 object PromoCodeParser {
-    private val tokenRegex = Regex("(?<![\\p{L}\\p{N}])[\\p{L}\\p{N}]{4,40}(?![\\p{L}\\p{N}])")
-    private val numericRegex = Regex("(?<!\\d)\\d{8,32}(?!\\d)")
-    private val ignoredWords = setOf(
-        "ПРОМОЧАТ", "ПРОМОКОД", "ПРОМОИЗПОСТА", "АКЦИЯ", "КУПИТЬ", "ПОДПИСКУ",
-        "ПОДПИСКА", "КЕЙС", "БОНУС", "ДЕПОЗИТ", "ПОПОЛНЕНИЕ", "ПРОМО",
-        "TELEGRAM", "HTTP", "HTTPS", "BOT", "КОПИРОВАТЬ", "COPY"
+    private val tokenRegex = Regex("""(?<![\p{L}\p{N}])[\p{L}\p{N}]{4,40}(?![\p{L}\p{N}])""")
+    private val numericRegex = Regex("""\d{8,32}""")
+    private val priceRegex = Regex(
+        """(?iu)(?:\d+(?:[.,]\d+)?\s*(?:\$|€|₽|руб(?:\.|лей)?|usd)|(?:\$|€|₽)\s*\d+(?:[.,]\d+)?)"""
     )
-    // Do not submit codes from posts mentioning deposit/top-up requirements,
-    // including fixed-sum and non-percentage conditions.
+    private val caseRegex = Regex("""(?iu)\b(?:КЕЙС|CASE)\b""")
+    private val separatorRegex = Regex("""[—–:-]""")
+
+    private val ignoredWords = setOf(
+        "ПРОМО", "ПРОМОКОД", "ПРОМОЧАТ", "ПРОМОИЗПОСТА", "ИЗ", "ПОСТА",
+        "КЕЙС", "CASE", "АКЦИЯ", "КУПИТЬ", "ПОДПИСКУ", "ПОДПИСКА",
+        "БОНУС", "ДЕПОЗИТ", "ПОПОЛНЕНИЕ", "TELEGRAM", "БОТ", "BOT",
+        "HTTP", "HTTPS", "COPY", "КОПИРОВАТЬ", "ЦЕНА", "ПОДАРОК",
+        "СКИДКА", "ПОДПИШИСЬ", "ПОДПИСАТЬСЯ"
+    )
+    private val ignoredPhrases = listOf(
+        "ПРОМО ИЗ ПОСТА", "PROMO FROM POST", "КУПИТЬ ПОДПИСКУ",
+        "ПОДПИСКУ В TELEGRAM", "TELEGRAM-БОТ"
+    )
     private val depositConditionRegex = Regex(
         """(?iu)депозит\w*|deposit\w*|пополн\w*|top[\s-]?up|minimum\s+(?:deposit|top[\s-]?up)"""
     )
@@ -22,49 +32,62 @@ object PromoCodeParser {
     fun isDepositRelated(message: String): Boolean =
         depositConditionRegex.containsMatchIn(message)
 
+    fun isValidCandidate(raw: String): Boolean = normalize(raw) != null
+
     fun extract(message: String): List<String> = extract(message, emptyList())
 
     fun extract(message: String, entityTexts: List<String>): List<String> {
         if (message.isBlank() || isDepositRelated(message)) return emptyList()
+
+        // Telegram code/pre entities are explicit code signals.
+        val explicit = LinkedHashSet<String>()
+        entityTexts.forEach { raw -> normalize(raw)?.let(explicit::add) }
+        if (explicit.isNotEmpty()) return explicit.toList()
+
+        // Inline code is the strongest signal. Never scan surrounding prose if present.
+        val markdownCodes = LinkedHashSet<String>()
+        Regex("`([^`\n]{1,80})`").findAll(message).forEach { match ->
+            normalize(match.groupValues[1])?.let(markdownCodes::add)
+        }
+        if (markdownCodes.isNotEmpty()) return markdownCodes.toList()
+
         val found = LinkedHashSet<String>()
-        entityTexts.forEach { raw ->
-            val candidate = normalize(raw)
-            if (candidate != null && looksLikeCode(raw) && candidate !in ignoredWords) found.add(candidate)
-        }
-
-        // Telegram posts frequently format the code as inline/pre text. Keep these first.
-        Regex("`([^`]{4,80})`").findAll(message).forEach { match ->
-            normalize(match.groupValues[1])?.let(found::add)
-        }
-
-        // Currency-price lines such as "0.25$ — BLSTRIS1".
-        message.lineSequence().forEach { line ->
-            if (Regex("(?i)(?:\\$|€|₽|руб|usd)\\s*(?:[—–:-])").containsMatchIn(line) ||
-                Regex("(?i)(?:[—–:-])\\s*(?:\\$|€|₽|руб|usd)").containsMatchIn(line)) {
-                tokenRegex.findAll(line).forEach { normalize(it.value)?.let(found::add) }
+        message.lineSequence().forEach { originalLine ->
+            val line = originalLine.trim()
+            if (line.isBlank()) return@forEach
+            val upper = line.uppercase()
+            if (ignoredPhrases.any { upper.contains(it) }) return@forEach
+            if (upper.contains("TELEGRAM-BOT") || upper.contains("T.ME/") || upper.contains("HTTPS://")) {
+                return@forEach
             }
-        }
 
-        tokenRegex.findAll(message).forEach { match ->
-            val raw = match.value
-            val code = normalize(raw)
-            // Avoid ordinary sentence words and channel headings. Unformatted candidates
-            // must look like promo tokens: uppercase or alphanumeric.
-            if (code != null && looksLikeCode(raw) && code !in ignoredWords) found.add(code)
+            if (priceRegex.containsMatchIn(line) || caseRegex.containsMatchIn(line)) {
+                val separator = separatorRegex.findAll(line).lastOrNull()
+                if (separator != null) {
+                    val suffix = line.substring(separator.range.last + 1)
+                    tokenRegex.findAll(suffix).forEach { match ->
+                        normalize(match.value)?.let(found::add)
+                    }
+                }
+                return@forEach
+            }
+
+            // Also support codes printed alone without Telegram code formatting.
+            if (tokenRegex.matches(line)) normalize(line)?.let(found::add)
         }
         return found.toList()
     }
 
-    private fun looksLikeCode(raw: String): Boolean =
-        raw.any(Char::isDigit) || raw == raw.uppercase()
-
     private fun normalize(raw: String): String? {
-        val cleaned = raw.trim().trim { !it.isLetterOrDigit() }
-            .replace(Regex("[^\\p{L}\\p{N}]"), "")
-            .uppercase()
-        if (cleaned.length !in 4..40) return null
-        if (cleaned in ignoredWords) return null
-        if (!cleaned.any(Char::isLetter) && !numericRegex.matches(cleaned)) return null
-        return cleaned
+        val candidate = raw.trim().trim { !it.isLetterOrDigit() }
+        if (candidate.isEmpty() || candidate.any(Char::isWhitespace)) return null
+        if (!Regex("""[\p{L}\p{N}]{4,40}""").matches(candidate)) return null
+        if (candidate != candidate.uppercase() && !candidate.any(Char::isDigit)) return null
+
+        val normalized = candidate.uppercase()
+        if (normalized in ignoredWords) return null
+        if (normalized.contains("ПРОМОИЗПОСТА")) return null
+        if (!normalized.any(Char::isLetter) && !numericRegex.matches(normalized)) return null
+        return normalized
     }
 }
