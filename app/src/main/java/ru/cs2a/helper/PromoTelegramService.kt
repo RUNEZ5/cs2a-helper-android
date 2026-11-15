@@ -73,7 +73,7 @@ class PromoTelegramService : Service() {
         }
         try {
             System.loadLibrary("tdjni")
-            client = Client.create({ update -> handleUpdate(update) }, null, null)
+            client = Client.create(Client.ResultHandler { update -> handleUpdate(update) }, null, null)
             status("Инициализация Telegram…")
         } catch (e: Exception) {
             status("Ошибка TDLib: ${e.message}")
