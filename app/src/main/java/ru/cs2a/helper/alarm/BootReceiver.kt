@@ -7,6 +7,8 @@ import ru.cs2a.helper.LOTTERIES
 import ru.cs2a.helper.TokenStore
 import ru.cs2a.helper.PromoTelegramService
 import ru.cs2a.helper.ActivityStatusService
+import ru.cs2a.helper.PromoTelegramService
+import ru.cs2a.helper.ActivityStatusService
 
 // После перезагрузки телефона все будильники AlarmManager слетают — переставляем те,
 // что были включены (аналог farmRestoreAlarm() в background.js).
