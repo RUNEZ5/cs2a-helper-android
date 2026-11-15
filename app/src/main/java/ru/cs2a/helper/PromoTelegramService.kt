@@ -170,7 +170,7 @@ class PromoTelegramService : Service() {
                 }
                 val oldest = page.minByOrNull { it.id }
                 val total = scanned + page.size
-                if (oldest != null && oldest.date.toLong() >= cutoff && page.size == 100 && oldest.id != fromMessageId) {
+                if (oldest != null && oldest.date.toLong() >= cutoff && oldest.id != fromMessageId) {
                     scanHistoryPage(oldest.id, cutoff, total)
                 } else {
                     status("Мониторинг @promo_runs активен · просмотрено сообщений: " + total)
