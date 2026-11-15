@@ -15,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.Client
@@ -229,7 +230,7 @@ class PromoTelegramService : Service() {
             if (result is TdApi.Messages) {
                 val page = result.messages
                 historyPagesScanned++
-                val pageJob = scope.launch {
+                val pageJob = scope.launch(start = CoroutineStart.LAZY) {
                     for (msg in page) {
                         if (historyScanCancelled) return@launch
                         if (msg.date.toLong() >= cutoff) historyCandidates.addAll(extractCodes(msg))
@@ -260,6 +261,7 @@ class PromoTelegramService : Service() {
                     }
                 }
                 historyScanJob = pageJob
+                pageJob.start()
             } else if (result is TdApi.Error) {
                 historyScanStarted = false
                 historyScanJob = null
