@@ -214,6 +214,10 @@ class MainActivity : AppCompatActivity() {
             PromoTelegramService.submitPassword(this, value)
             password.text.clear()
         }
+        findViewById<Button>(R.id.promoScanStopBtn).setOnClickListener {
+            PromoTelegramService.stopHistoryScan(this)
+            findViewById<TextView>(R.id.promoStatus).text = "Останавливаю проверку истории…"
+        }
         findViewById<Button>(R.id.promoStopBtn).setOnClickListener {
             PromoTelegramService.stop(this)
             TokenStore.setBool("promoAuto", false)
