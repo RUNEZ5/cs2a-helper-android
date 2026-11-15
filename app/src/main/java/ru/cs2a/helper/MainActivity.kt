@@ -218,6 +218,20 @@ class MainActivity : AppCompatActivity() {
             PromoTelegramService.stopHistoryScan(this)
             findViewById<TextView>(R.id.promoStatus).text = "Останавливаю проверку истории…"
         }
+        findViewById<Button>(R.id.promoClearHistoryBtn).setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Удалить историю промокодов?")
+                .setMessage("Будут удалены сохранённые результаты активации для текущего аккаунта. Повторная проверка сможет найти эти коды снова.")
+                .setNegativeButton("Отмена", null)
+                .setPositiveButton("Удалить") { _, _ ->
+                    if (PromoActivator.clearCurrentAccountHistory()) {
+                        Toast.makeText(this, "История использованных промо удалена", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this, "Нет активного токена аккаунта", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .show()
+        }
         findViewById<Button>(R.id.promoStopBtn).setOnClickListener {
             PromoTelegramService.stop(this)
             TokenStore.setBool("promoAuto", false)
