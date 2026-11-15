@@ -30,6 +30,7 @@ class PromoTelegramService : Service() {
     @Volatile private var historyScanJob: Job? = null
     private var channelSearchStarted = false
     private var historyPagesScanned = 0
+    private val historyCandidates = LinkedHashSet<String>()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -201,6 +202,7 @@ class PromoTelegramService : Service() {
         historyScanStarted = true
         historyScanCancelled = false
         historyPagesScanned = 0
+        historyCandidates.clear()
         historyScanJob = null
         TokenStore.setBool("promoScanRequested", false)
         val days = TokenStore.getInt("promoScanDays", 7).coerceIn(1, 365)
@@ -228,9 +230,9 @@ class PromoTelegramService : Service() {
                 val page = result.messages
                 historyPagesScanned++
                 val pageJob = scope.launch {
-                    for (msg in page.sortedBy { it.date }) {
+                    for (msg in page) {
                         if (historyScanCancelled) return@launch
-                        if (msg.date.toLong() >= cutoff) processMessage(msg, true)
+                        if (msg.date.toLong() >= cutoff) historyCandidates.addAll(extractCodes(msg))
                     }
                     if (historyScanCancelled) return@launch
                     val oldest = page.minByOrNull { it.id }
@@ -242,9 +244,19 @@ class PromoTelegramService : Service() {
                     if (hasOlderPage) {
                         scanHistoryPage(oldest!!.id, cutoff, total)
                     } else {
-                        historyScanStarted = false
-                        historyScanJob = null
-                        status("Проверка истории завершена · просмотрено сообщений: " + total)
+                        val candidates = historyCandidates.toList()
+                        historyScanJob = scope.launch {
+                            for (code in candidates) {
+                                if (historyScanCancelled) break
+                                processCodes(listOf(code), true)
+                            }
+                            historyScanStarted = false
+                            historyScanJob = null
+                            historyCandidates.clear()
+                            if (!historyScanCancelled) {
+                                status("Проверка истории завершена · просмотрено сообщений: " + total)
+                            }
+                        }
                     }
                 }
                 historyScanJob = pageJob
@@ -256,7 +268,7 @@ class PromoTelegramService : Service() {
         }
     }
 
-    private suspend fun processMessage(message: TdApi.Message, fromHistory: Boolean) {
+    private fun extractCodes(message: TdApi.Message): List<String> {
         val formatted = when (val content = message.content) {
             is TdApi.MessageText -> content.text
             is TdApi.MessagePhoto -> content.caption
@@ -264,10 +276,9 @@ class PromoTelegramService : Service() {
             is TdApi.MessageAnimation -> content.caption
             is TdApi.MessageDocument -> content.caption
             is TdApi.MessageAudio -> content.caption
-            else -> return
+            else -> return emptyList()
         }
-        val body = formatted.text ?: return
-        // Only Telegram code/pre entities are treated as explicitly marked promo tokens.
+        val body = formatted.text ?: return emptyList()
         val segments = formatted.entities.mapNotNull { entity ->
             val typeName = entity.type.javaClass.simpleName
             if (typeName !in setOf("TextEntityTypeCode", "TextEntityTypePre", "TextEntityTypePreCode")) {
@@ -277,7 +288,14 @@ class PromoTelegramService : Service() {
             val end = (start + entity.length).coerceAtMost(body.length)
             if (start >= end) null else body.substring(start, end)
         }
-        val codes = PromoCodeParser.extract(body, segments)
+        return PromoCodeParser.extract(body, segments)
+    }
+
+    private suspend fun processMessage(message: TdApi.Message, fromHistory: Boolean) {
+        processCodes(extractCodes(message), fromHistory)
+    }
+
+    private suspend fun processCodes(codes: List<String>, fromHistory: Boolean) {
         for (code in codes) {
             if (fromHistory && historyScanCancelled) return
             if (PromoActivator.alreadyProcessed(code)) continue
