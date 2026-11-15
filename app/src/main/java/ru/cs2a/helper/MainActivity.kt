@@ -37,6 +37,10 @@ import java.util.Date
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
+    companion object {
+        private const val KEY_RISK_WARNING_ACCEPTED = "risk_warning_accepted"
+    }
+
     private val handler = Handler(Looper.getMainLooper())
     private val notifPermLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (!granted) Toast.makeText(this, "Без разрешения на уведомления не будет видно, что служба спама работает", Toast.LENGTH_LONG).show()
@@ -57,6 +61,41 @@ class MainActivity : AppCompatActivity() {
         TokenStore.init(this)
         setContentView(R.layout.activity_main)
 
+        val preferences = getSharedPreferences("app_preferences", MODE_PRIVATE)
+        if (preferences.getBoolean(KEY_RISK_WARNING_ACCEPTED, false)) {
+            initializeMainUi()
+        } else {
+            showFirstLaunchDisclaimer()
+        }
+    }
+
+    private fun showFirstLaunchDisclaimer() {
+        AlertDialog.Builder(this)
+            .setTitle("Предупреждение и принятие рисков")
+            .setMessage(
+                "Это приложение предоставляется «как есть». Использование его функций может привести к " +
+                    "ограничению, блокировке или потере доступа к аккаунту, потере средств и другим последствиям. " +
+                    "Вы самостоятельно оцениваете риски и несёте ответственность за использование приложения и его функций.\n\n" +
+                    "Разработчик не гарантирует отсутствие санкций со стороны сторонних сервисов и не несёт " +
+                    "ответственности за блокировки или ограничения аккаунта, а также связанные с этим последствия. " +
+                    "Принимая условия, вы подтверждаете, что понимаете риски и не будете предъявлять автору " +
+                    "претензии в связи с блокировкой или ограничением аккаунта."
+            )
+            .setCancelable(false)
+            .setPositiveButton("Принимаю риски и ответственность") { _, _ ->
+                getSharedPreferences("app_preferences", MODE_PRIVATE)
+                    .edit()
+                    .putBoolean(KEY_RISK_WARNING_ACCEPTED, true)
+                    .apply()
+                initializeMainUi()
+            }
+            .setNegativeButton("Не принимаю — выйти") { _, _ ->
+                finish()
+            }
+            .show()
+    }
+
+    private fun initializeMainUi() {
         showTab("farm")
         findViewById<Button>(R.id.tabFarm).setOnClickListener { showTab("farm") }
         findViewById<Button>(R.id.tabRaffles).setOnClickListener { showTab("raffles") }
