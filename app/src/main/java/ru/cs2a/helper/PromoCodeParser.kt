@@ -8,10 +8,16 @@ package ru.cs2a.helper
 object PromoCodeParser {
     private val tokenRegex = Regex("(?<![\\p{L}\\p{N}])[\\p{L}\\p{N}]{4,40}(?![\\p{L}\\p{N}])")
     private val numericRegex = Regex("(?<!\\d)\\d{8,32}(?!\\d)")
-    private val ignoredWords = setOf("ПРОМОЧАТ", "ПРОМОКОД", "ПРОМОИЗПОСТА", "АКЦИЯ", "КУПИТЬ", "ПОДПИСКУ", "ПОДПИСКА", "КЕЙС", "БОНУС", "ДЕПОЗИТ", "ПОПОЛНЕНИЕ", "ПРОМО", "TELEGRAM", "HTTP", "HTTPS", "BOT")
+    private val ignoredWords = setOf(
+        "ПРОМОЧАТ", "ПРОМОКОД", "ПРОМОИЗПОСТА", "АКЦИЯ", "КУПИТЬ", "ПОДПИСКУ",
+        "ПОДПИСКА", "КЕЙС", "БОНУС", "ДЕПОЗИТ", "ПОПОЛНЕНИЕ", "ПРОМО",
+        "TELEGRAM", "HTTP", "HTTPS", "BOT", "КОПИРОВАТЬ", "COPY"
+    )
     // Do not submit codes from posts mentioning deposit/top-up requirements,
     // including fixed-sum and non-percentage conditions.
-    private val depositConditionRegex = Regex("""(?iu)депозит\w*|deposit\w*|пополн\w*|top\s?up|минимальн\w*\s+(?:депозит|пополн)""")
+    private val depositConditionRegex = Regex(
+        """(?iu)депозит\w*|deposit\w*|пополн\w*|top[\s-]?up|minimum\s+(?:deposit|top[\s-]?up)"""
+    )
 
     fun isDepositRelated(message: String): Boolean =
         depositConditionRegex.containsMatchIn(message)
@@ -23,7 +29,7 @@ object PromoCodeParser {
         val found = LinkedHashSet<String>()
         entityTexts.forEach { raw ->
             val candidate = normalize(raw)
-            if (candidate != null && (raw.any(Char::isDigit) || raw == raw.uppercase()) && candidate !in ignoredWords) found.add(candidate)
+            if (candidate != null && looksLikeCode(raw) && candidate !in ignoredWords) found.add(candidate)
         }
 
         // Telegram posts frequently format the code as inline/pre text. Keep these first.
@@ -44,11 +50,13 @@ object PromoCodeParser {
             val code = normalize(raw)
             // Avoid ordinary sentence words and channel headings. Unformatted candidates
             // must look like promo tokens: uppercase or alphanumeric.
-            val looksLikeCode = raw.any(Char::isDigit) || raw == raw.uppercase()
-            if (code != null && looksLikeCode && code !in ignoredWords) found.add(code)
+            if (code != null && looksLikeCode(raw) && code !in ignoredWords) found.add(code)
         }
         return found.toList()
     }
+
+    private fun looksLikeCode(raw: String): Boolean =
+        raw.any(Char::isDigit) || raw == raw.uppercase()
 
     private fun normalize(raw: String): String? {
         val cleaned = raw.trim().trim { !it.isLetterOrDigit() }
