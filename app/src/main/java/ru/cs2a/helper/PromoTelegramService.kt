@@ -64,11 +64,11 @@ class PromoTelegramService : Service() {
             ACTION_SCAN_HISTORY -> {
                 TokenStore.setBool("promoScanRequested", true)
                 historyScanStarted = false
-                if (client == null) startClient() else if (chatId != 0L) scanHistory()
+                if (client == null) startClient() else if (chatId != 0L) scanHistory() else findChannel()
             }
             ACTION_MONITOR_START -> {
                 TokenStore.setBool("promoAuto", true)
-                if (client == null) startClient() else if (chatId != 0L) status("Мониторинг @promo_runs активен")
+                if (client == null) startClient() else if (chatId != 0L) status("Мониторинг @promo_runs активен") else findChannel()
             }
             ACTION_MONITOR_STOP -> {
                 TokenStore.setBool("promoAuto", false)
