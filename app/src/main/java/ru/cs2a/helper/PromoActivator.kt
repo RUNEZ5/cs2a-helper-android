@@ -1,11 +1,14 @@
 package ru.cs2a.helper
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -30,6 +33,8 @@ object PromoActivator {
 
     // Serialize dispatch only, never wait for the HTTP response while holding the queue.
     private val dispatchMutex = Mutex()
+    private val retryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private const val MAX_TIMEOUT_RETRIES = 2
     private val pending = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var lastDispatchAt = 0L
     @Volatile private var blockedUntil = 0L
@@ -88,39 +93,7 @@ object PromoActivator {
                     .build()
 
                 lastDispatchAt = System.currentTimeMillis()
-                client.newCall(request).enqueue(object : Callback {
-                    override fun onFailure(call: Call, e: IOException) {
-                        pending.remove(normalized)
-                        onResult(Result(normalized, false, "ответ не получен: ${e.message ?: "ошибка сети"}", 0))
-                    }
-
-                    override fun onResponse(call: Call, response: Response) {
-                        response.use {
-                            val raw = it.body?.string().orEmpty()
-                            val root = try { JSONObject(raw) } catch (_: Exception) { JSONObject() }
-                            val data = root.optJSONObject("data") ?: root
-                            val activated = it.isSuccessful && data.optBoolean("isActivate", false)
-                            if (it.code == 429) {
-                                val retrySeconds = it.header("Retry-After")?.toLongOrNull()
-                                val retryMs = retrySeconds?.coerceAtLeast(1)?.times(1_000L) ?: DEFAULT_RATE_LIMIT_WAIT_MS
-                                blockedUntil = maxOf(blockedUntil, System.currentTimeMillis() + retryMs)
-                            }
-                            val message = when {
-                                activated -> "активирован"
-                                it.code == 429 -> "HTTP 429: ограничение частоты, очередь приостановлена"
-                                data.optString("error").isNotBlank() -> data.optString("error").take(120)
-                                root.optString("message").isNotBlank() -> root.optString("message").take(120)
-                                raw.trimStart().startsWith("<") && it.code == 502 -> "HTTP 502: ошибка шлюза (HTML скрыт)"
-                                raw.trimStart().startsWith("<") && it.code == 403 -> "HTTP 403: доступ запрещён (HTML скрыт)"
-                                raw.trimStart().startsWith("<") -> "HTTP ${it.code}: HTML вместо JSON"
-                                else -> "HTTP ${it.code}: ${raw.take(120)}"
-                            }
-                            if (it.code != 429 && it.code !in 500..599) remember(normalized, mirror, activated, message, jwt)
-                            pending.remove(normalized)
-                            onResult(Result(normalized, activated, message, it.code))
-                        }
-                    }
-                })
+                sendAsync(request, normalized, mirror, jwt, 0, onResult)
             }
             Result(normalized, false, "запрос отправлен; ожидание ответа не блокирует очередь", 0)
         } catch (e: CancellationException) {
@@ -130,6 +103,66 @@ object PromoActivator {
             pending.remove(normalized)
             Result(normalized, false, e.message ?: "ошибка отправки", 0)
         }
+    }
+
+    private fun sendAsync(
+        request: Request,
+        code: String,
+        mirror: String,
+        jwt: String,
+        attempt: Int,
+        onResult: (Result) -> Unit
+    ) {
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                val isTimeout = e is java.net.SocketTimeoutException ||
+                    (e.message?.contains("timeout", ignoreCase = true) == true)
+                if (isTimeout && attempt < MAX_TIMEOUT_RETRIES) {
+                    onResult(Result(code, false, "таймаут; повторная попытка ${attempt + 1}/$MAX_TIMEOUT_RETRIES", 0))
+                    retryScope.launch {
+                        dispatchMutex.withLock {
+                            while (true) {
+                                val waitMs = maxOf(lastDispatchAt + MIN_REQUEST_INTERVAL_MS, blockedUntil) - System.currentTimeMillis()
+                                if (waitMs <= 0) break
+                                delay(waitMs)
+                            }
+                            lastDispatchAt = System.currentTimeMillis()
+                            sendAsync(request, code, mirror, jwt, attempt + 1, onResult)
+                        }
+                    }
+                } else {
+                    pending.remove(code)
+                    onResult(Result(code, false, "ответ не получен: ${e.message ?: "ошибка сети"}", 0))
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    val raw = it.body?.string().orEmpty()
+                    val root = try { JSONObject(raw) } catch (_: Exception) { JSONObject() }
+                    val data = root.optJSONObject("data") ?: root
+                    val activated = it.isSuccessful && data.optBoolean("isActivate", false)
+                    if (it.code == 429) {
+                        val retrySeconds = it.header("Retry-After")?.toLongOrNull()
+                        val retryMs = retrySeconds?.coerceAtLeast(1)?.times(1_000L) ?: DEFAULT_RATE_LIMIT_WAIT_MS
+                        blockedUntil = maxOf(blockedUntil, System.currentTimeMillis() + retryMs)
+                    }
+                    val message = when {
+                        activated -> "активирован"
+                        it.code == 429 -> "HTTP 429: ограничение частоты, очередь приостановлена"
+                        data.optString("error").isNotBlank() -> data.optString("error").take(120)
+                        root.optString("message").isNotBlank() -> root.optString("message").take(120)
+                        raw.trimStart().startsWith("<") && it.code == 502 -> "HTTP 502: ошибка шлюза (HTML скрыт)"
+                        raw.trimStart().startsWith("<") && it.code == 403 -> "HTTP 403: доступ запрещён (HTML скрыт)"
+                        raw.trimStart().startsWith("<") -> "HTTP ${it.code}: HTML вместо JSON"
+                        else -> "HTTP ${it.code}: ${raw.take(120)}"
+                    }
+                    if (it.code != 429 && it.code !in 500..599) remember(code, mirror, activated, message, jwt)
+                    pending.remove(code)
+                    onResult(Result(code, activated, message, it.code))
+                }
+            }
+        })
     }
 
     private fun remember(code: String, mirror: String, activated: Boolean, message: String, jwt: String) {
