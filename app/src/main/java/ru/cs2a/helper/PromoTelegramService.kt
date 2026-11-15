@@ -23,7 +23,8 @@ import java.security.SecureRandom
 class PromoTelegramService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var chatId = 0L
-    private var historyScanStarted = false
+    @Volatile private var historyScanStarted = false
+    @Volatile private var historyScanCancelled = false
     private var channelSearchStarted = false
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -73,6 +74,11 @@ class PromoTelegramService : Service() {
             ACTION_MONITOR_STOP -> {
                 TokenStore.setBool("promoAuto", false)
                 status(if (chatId != 0L) "Telegram подключён · мониторинг остановлен" else "Мониторинг остановлен")
+            }
+            ACTION_SCAN_STOP -> {
+                historyScanCancelled = true
+                historyScanStarted = false
+                status("Проверка истории остановлена пользователем")
             }
         }
         return START_STICKY
@@ -147,7 +153,9 @@ class PromoTelegramService : Service() {
                 else -> status("Состояние Telegram: ${state.javaClass.simpleName}")
             }
             is TdApi.UpdateNewMessage -> {
-                if (TokenStore.getBool("promoAuto") && obj.message.chatId == chatId) processMessage(obj.message, false)
+                if (TokenStore.getBool("promoAuto") && obj.message.chatId == chatId) {
+                    scope.launch { processMessage(obj.message, false) }
+                }
             }
             is TdApi.UpdateConnectionState -> status("Telegram: ${obj.state.javaClass.simpleName}")
         }
@@ -180,6 +188,7 @@ class PromoTelegramService : Service() {
     private fun scanHistory() {
         if (historyScanStarted || chatId == 0L) return
         historyScanStarted = true
+        historyScanCancelled = false
         TokenStore.setBool("promoScanRequested", false)
         val days = TokenStore.getInt("promoScanDays", 7).coerceIn(1, 365)
         val cutoff = (System.currentTimeMillis() / 1000L) - days * 86400L
@@ -188,26 +197,34 @@ class PromoTelegramService : Service() {
     }
 
     private fun scanHistoryPage(fromMessageId: Long, cutoff: Long, scanned: Int) {
+        if (historyScanCancelled) return
         client?.send(TdApi.GetChatHistory(chatId, fromMessageId, 0, 100, false)) { result ->
+            if (historyScanCancelled) return@send
             if (result is TdApi.Messages) {
                 val page = result.messages
-                page.sortedBy { it.date }.forEach { msg ->
-                    if (msg.date.toLong() >= cutoff) processMessage(msg, true)
-                }
-                val oldest = page.minByOrNull { it.id }
-                val total = scanned + page.size
-                if (oldest != null && oldest.date.toLong() >= cutoff && oldest.id != fromMessageId) {
-                    scanHistoryPage(oldest.id, cutoff, total)
-                } else {
-                    status("Проверка истории завершена · просмотрено сообщений: " + total)
+                scope.launch {
+                    for (msg in page.sortedBy { it.date }) {
+                        if (historyScanCancelled) break
+                        if (msg.date.toLong() >= cutoff) processMessage(msg, true)
+                    }
+                    if (historyScanCancelled) return@launch
+                    val oldest = page.minByOrNull { it.id }
+                    val total = scanned + page.size
+                    if (oldest != null && oldest.date.toLong() >= cutoff && oldest.id != fromMessageId) {
+                        scanHistoryPage(oldest.id, cutoff, total)
+                    } else {
+                        historyScanStarted = false
+                        status("Проверка истории завершена · просмотрено сообщений: " + total)
+                    }
                 }
             } else if (result is TdApi.Error) {
+                historyScanStarted = false
                 status("Ошибка чтения истории: " + result.message)
             }
         }
     }
 
-    private fun processMessage(message: TdApi.Message, fromHistory: Boolean) {
+    private suspend fun processMessage(message: TdApi.Message, fromHistory: Boolean) {
         val formatted = when (val content = message.content) {
             is TdApi.MessageText -> content.text
             is TdApi.MessagePhoto -> content.caption
@@ -224,15 +241,13 @@ class PromoTelegramService : Service() {
             if (start >= end) null else body.substring(start, end)
         }
         val codes = PromoCodeParser.extract(body, segments)
-        if (codes.isEmpty()) return
-        scope.launch {
-            for (code in codes) {
-                if (PromoActivator.alreadyProcessed(code)) continue
-                Logs.add(this@PromoTelegramService, "promo", "Найден код: $code" + if (fromHistory) " · история" else " · новый пост", "ok")
-                val mirror = TokenStore.getString("promoMirror", "cs2a.run")
-                val result = PromoActivator.activate(code, mirror)
-                Logs.add(this@PromoTelegramService, "promo", "${result.code}: ${result.message} (HTTP ${result.status})", if (result.activated) "ok" else "bad")
-            }
+        for (code in codes) {
+            if (fromHistory && historyScanCancelled) return
+            if (PromoActivator.alreadyProcessed(code)) continue
+            Logs.add(this@PromoTelegramService, "promo", "Найден код: $code" + if (fromHistory) " · история" else " · новый пост", "ok")
+            val mirror = TokenStore.getString("promoMirror", "cs2a.run")
+            val result = PromoActivator.activate(code, mirror)
+            Logs.add(this@PromoTelegramService, "promo", "${result.code}: ${result.message} (HTTP ${result.status})", if (result.activated) "ok" else "bad")
         }
     }
 
@@ -278,6 +293,7 @@ class PromoTelegramService : Service() {
         const val ACTION_SCAN_HISTORY = "ru.cs2a.helper.PROMO_SCAN_HISTORY"
         const val ACTION_MONITOR_START = "ru.cs2a.helper.PROMO_MONITOR_START"
         const val ACTION_MONITOR_STOP = "ru.cs2a.helper.PROMO_MONITOR_STOP"
+        const val ACTION_SCAN_STOP = "ru.cs2a.helper.PROMO_SCAN_STOP"
         const val ACTION_CODE = "ru.cs2a.helper.PROMO_CODE"
         const val ACTION_PASSWORD = "ru.cs2a.helper.PROMO_PASSWORD"
         private const val NOTIFICATION_ID = 52
@@ -297,6 +313,9 @@ class PromoTelegramService : Service() {
             androidx.core.content.ContextCompat.startForegroundService(
                 context, Intent(context, PromoTelegramService::class.java).setAction(ACTION_MONITOR_START)
             )
+        }
+        fun stopHistoryScan(context: Context) {
+            context.startService(Intent(context, PromoTelegramService::class.java).setAction(ACTION_SCAN_STOP))
         }
         fun submitCode(context: Context, code: String) {
             TokenStore.setString("promoLoginCode", code)
