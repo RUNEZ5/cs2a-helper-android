@@ -158,14 +158,25 @@ class PromoTelegramService : Service() {
         val days = TokenStore.getInt("promoScanDays", 7).coerceIn(1, 365)
         val cutoff = (System.currentTimeMillis() / 1000L) - days * 86400L
         status("Первичная проверка @promo_runs за $days дн.")
-        client?.send(TdApi.GetChatHistory(chatId, 0, 0, 100, false)) { result ->
+        scanHistoryPage(0L, cutoff, 0)
+    }
+
+    private fun scanHistoryPage(fromMessageId: Long, cutoff: Long, scanned: Int) {
+        client?.send(TdApi.GetChatHistory(chatId, fromMessageId, 0, 100, false)) { result ->
             if (result is TdApi.Messages) {
-                result.messages.sortedBy { it.date }.forEach { msg ->
+                val page = result.messages
+                page.sortedBy { it.date }.forEach { msg ->
                     if (msg.date.toLong() >= cutoff) processMessage(msg, true)
                 }
-                status("Мониторинг @promo_runs активен · проверена история за $days дн.")
+                val oldest = page.minByOrNull { it.id }
+                val total = scanned + page.size
+                if (oldest != null && oldest.date.toLong() >= cutoff && page.size == 100 && oldest.id != fromMessageId) {
+                    scanHistoryPage(oldest.id, cutoff, total)
+                } else {
+                    status("Мониторинг @promo_runs активен · просмотрено сообщений: " + total)
+                }
             } else if (result is TdApi.Error) {
-                status("Ошибка чтения истории: ${result.message}")
+                status("Ошибка чтения истории: " + result.message)
             }
         }
     }
