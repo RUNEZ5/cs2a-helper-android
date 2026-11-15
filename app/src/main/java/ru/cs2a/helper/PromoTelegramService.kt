@@ -111,7 +111,7 @@ class PromoTelegramService : Service() {
                     client?.send(p, authResult("параметры Telegram заданы"))
                 }
                 is TdApi.AuthorizationStateWaitPhoneNumber -> {
-                    val phone = TokenStore.getString("promoPhone")
+                    val phone = TokenStore.getSecret("promoPhone")
                     if (phone.isNotBlank()) client?.send(TdApi.SetAuthenticationPhoneNumber(phone, null), authResult("номер отправлен"))
                     else status("Введите номер телефона")
                 }
@@ -189,7 +189,6 @@ class PromoTelegramService : Service() {
             is TdApi.MessageAnimation -> content.caption
             is TdApi.MessageDocument -> content.caption
             is TdApi.MessageAudio -> content.caption
-            is TdApi.MessageVoice -> content.caption
             else -> return
         }
         val body = formatted.text ?: return
