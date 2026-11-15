@@ -35,6 +35,12 @@ object PromoActivator {
         return "promoHistory_$hash"
     }
 
+    fun clearCurrentAccountHistory(): Boolean {
+        val jwt = TokenStore.jwt() ?: return false
+        TokenStore.setString(historyKey(jwt), "[]")
+        return true
+    }
+
     fun alreadyProcessed(code: String): Boolean {
         val jwt = TokenStore.jwt() ?: return false
         val history = try { JSONArray(TokenStore.getString(historyKey(jwt), "[]")) } catch (_: Exception) { JSONArray() }
@@ -49,20 +55,19 @@ object PromoActivator {
 
     suspend fun activate(code: String, mirror: String): Result = withContext(Dispatchers.IO) {
         activationMutex.withLock {
-            val normalized = PromoCodeParser.extract(code).firstOrNull() ?: code.trim().uppercase()
-            if (normalized.isBlank()) return@withLock Result(code, false, "пустой код", 0)
+            val normalized = PromoCodeParser.extract(code).singleOrNull()
+                ?: return@withLock Result(code, false, "отклонено: текст не распознан как промокод", 0)
             if (mirror !in mirrors) return@withLock Result(normalized, false, "неизвестное зеркало", 0)
             if (alreadyProcessed(normalized)) return@withLock Result(normalized, false, "уже обработан ранее", 0)
             val jwt = TokenStore.jwt()
                 ?: return@withLock Result(normalized, false, Api.AUTH_MSG, 0)
 
-            try {
-                val now = System.currentTimeMillis()
-                val allowedAt = maxOf(lastRequestAt + MIN_REQUEST_INTERVAL_MS, blockedUntil)
-                val waitMs = allowedAt - now
-                if (waitMs > 0) delay(waitMs)
-                lastRequestAt = System.currentTimeMillis()
+            val now = System.currentTimeMillis()
+            val allowedAt = maxOf(lastRequestAt + MIN_REQUEST_INTERVAL_MS, blockedUntil)
+            val waitMs = allowedAt - now
+            if (waitMs > 0) delay(waitMs)
 
+            try {
                 val origin = "https://$mirror"
                 val body = JSONObject().put("code", normalized).toString()
                     .toRequestBody("application/json".toMediaType())
@@ -103,6 +108,9 @@ object PromoActivator {
                 }
             } catch (e: Exception) {
                 Result(normalized, false, e.message ?: "ошибка сети", 0)
+            } finally {
+                // Five full seconds between the end of one request and the start of the next.
+                lastRequestAt = System.currentTimeMillis()
             }
         }
     }
