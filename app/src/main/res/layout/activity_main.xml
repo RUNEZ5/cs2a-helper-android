@@ -36,6 +36,7 @@
             <include layout="@layout/panel_raffles" android:id="@+id/panelRaffles" />
             <include layout="@layout/panel_spam" android:id="@+id/panelSpam" />
             <include layout="@layout/panel_crash" android:id="@+id/panelCrash" />
+            <include layout="@layout/panel_promo" android:id="@+id/panelPromo" />
             <include layout="@layout/panel_status" android:id="@+id/panelStatus" />
         </FrameLayout>
     </ScrollView>
