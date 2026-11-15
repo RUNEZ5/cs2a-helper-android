@@ -233,7 +233,13 @@ class PromoTelegramService : Service() {
                 val pageJob = scope.launch(start = CoroutineStart.LAZY) {
                     for (msg in page) {
                         if (historyScanCancelled) return@launch
-                        if (msg.date.toLong() >= cutoff) historyCandidates.addAll(extractCodes(msg))
+                        if (msg.date.toLong() >= cutoff) {
+                            for (code in extractCodes(msg)) {
+                                if (historyCandidates.add(code)) {
+                                    Logs.add(this@PromoTelegramService, "promo", "Найден код: $code · история", "ok")
+                                }
+                            }
+                        }
                     }
                     if (historyScanCancelled) return@launch
                     val oldest = page.minByOrNull { it.id }
@@ -301,7 +307,9 @@ class PromoTelegramService : Service() {
         for (code in codes) {
             if (fromHistory && historyScanCancelled) return
             if (PromoActivator.alreadyProcessed(code)) continue
-            Logs.add(this@PromoTelegramService, "promo", "Найден код: $code" + if (fromHistory) " · история" else " · новый пост", "ok")
+            if (!fromHistory) {
+                Logs.add(this@PromoTelegramService, "promo", "Найден код: $code · новый пост", "ok")
+            }
             val mirror = TokenStore.getString("promoMirror", "cs2a.run")
             val result = PromoActivator.activate(code, mirror)
             Logs.add(this@PromoTelegramService, "promo", "${result.code}: ${result.message} (HTTP ${result.status})", if (result.activated) "ok" else "bad")
