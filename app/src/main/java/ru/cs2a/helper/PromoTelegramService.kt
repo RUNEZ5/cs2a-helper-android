@@ -76,6 +76,7 @@ class PromoTelegramService : Service() {
                 status(if (chatId != 0L) "Telegram подключён · мониторинг остановлен" else "Мониторинг остановлен")
             }
             ACTION_SCAN_STOP -> {
+                TokenStore.setBool("promoScanRequested", false)
                 historyScanCancelled = true
                 historyScanStarted = false
                 status("Проверка истории остановлена пользователем")
