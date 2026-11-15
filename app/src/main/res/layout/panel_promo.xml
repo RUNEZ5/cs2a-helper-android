@@ -6,7 +6,7 @@
 
     <TextView style="@style/CardLabel" android:text="Telegram · публичный канал @promo_runs" android:layout_marginTop="0dp" />
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="Первый запуск просматривает выбранный период, затем новые публикации обрабатываются сразу после получения обновления Telegram."
+        android:text="После подключения отдельно запускайте проверку старых публикаций за выбранный период и мониторинг новых публикаций."
         android:textColor="@color/textDim" android:textSize="12sp" />
 
     <TextView style="@style/CardLabel" android:text="Telegram API ID" />

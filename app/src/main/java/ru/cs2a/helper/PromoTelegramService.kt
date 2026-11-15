@@ -14,6 +14,8 @@ import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
@@ -25,7 +27,9 @@ class PromoTelegramService : Service() {
     private var chatId = 0L
     @Volatile private var historyScanStarted = false
     @Volatile private var historyScanCancelled = false
+    @Volatile private var historyScanJob: Job? = null
     private var channelSearchStarted = false
+    private var historyPagesScanned = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -63,9 +67,13 @@ class PromoTelegramService : Service() {
                 startClient()
             }
             ACTION_SCAN_HISTORY -> {
-                TokenStore.setBool("promoScanRequested", true)
-                historyScanStarted = false
-                if (client == null) startClient() else if (chatId != 0L) scanHistory() else findChannel()
+                if (historyScanStarted || TokenStore.getBool("promoScanRequested")) {
+                    status("Проверка истории уже запущена")
+                } else {
+                    historyScanCancelled = false
+                    TokenStore.setBool("promoScanRequested", true)
+                    if (client == null) startClient() else if (chatId != 0L) scanHistory() else findChannel()
+                }
             }
             ACTION_MONITOR_START -> {
                 TokenStore.setBool("promoAuto", true)
@@ -77,6 +85,9 @@ class PromoTelegramService : Service() {
             }
             ACTION_SCAN_STOP -> {
                 historyScanCancelled = true
+                TokenStore.setBool("promoScanRequested", false)
+                historyScanJob?.cancel()
+                historyScanJob = null
                 historyScanStarted = false
                 status("Проверка истории остановлена пользователем")
             }
@@ -189,6 +200,8 @@ class PromoTelegramService : Service() {
         if (historyScanStarted || chatId == 0L) return
         historyScanStarted = true
         historyScanCancelled = false
+        historyPagesScanned = 0
+        historyScanJob = null
         TokenStore.setBool("promoScanRequested", false)
         val days = TokenStore.getInt("promoScanDays", 7).coerceIn(1, 365)
         val cutoff = (System.currentTimeMillis() / 1000L) - days * 86400L
@@ -198,27 +211,46 @@ class PromoTelegramService : Service() {
 
     private fun scanHistoryPage(fromMessageId: Long, cutoff: Long, scanned: Int) {
         if (historyScanCancelled) return
-        client?.send(TdApi.GetChatHistory(chatId, fromMessageId, 0, 100, false)) { result ->
+        if (historyPagesScanned >= 100) {
+            historyScanStarted = false
+            status("Проверка остановлена: достигнут лимит 10 000 сообщений")
+            return
+        }
+        val activeClient = client
+        if (activeClient == null) {
+            historyScanStarted = false
+            status("Проверка остановлена: соединение Telegram потеряно")
+            return
+        }
+        activeClient.send(TdApi.GetChatHistory(chatId, fromMessageId, 0, 100, false)) { result ->
             if (historyScanCancelled) return@send
             if (result is TdApi.Messages) {
                 val page = result.messages
-                scope.launch {
+                historyPagesScanned++
+                val pageJob = scope.launch {
                     for (msg in page.sortedBy { it.date }) {
-                        if (historyScanCancelled) break
+                        if (historyScanCancelled) return@launch
                         if (msg.date.toLong() >= cutoff) processMessage(msg, true)
                     }
                     if (historyScanCancelled) return@launch
                     val oldest = page.minByOrNull { it.id }
                     val total = scanned + page.size
-                    if (oldest != null && oldest.date.toLong() >= cutoff && oldest.id != fromMessageId) {
-                        scanHistoryPage(oldest.id, cutoff, total)
+                    val hasOlderPage = oldest != null &&
+                        oldest.date.toLong() >= cutoff &&
+                        (fromMessageId == 0L || oldest.id < fromMessageId) &&
+                        page.size == 100
+                    if (hasOlderPage) {
+                        scanHistoryPage(oldest!!.id, cutoff, total)
                     } else {
                         historyScanStarted = false
+                        historyScanJob = null
                         status("Проверка истории завершена · просмотрено сообщений: " + total)
                     }
                 }
+                historyScanJob = pageJob
             } else if (result is TdApi.Error) {
                 historyScanStarted = false
+                historyScanJob = null
                 status("Ошибка чтения истории: " + result.message)
             }
         }
@@ -235,7 +267,12 @@ class PromoTelegramService : Service() {
             else -> return
         }
         val body = formatted.text ?: return
+        // Only Telegram code/pre entities are treated as explicitly marked promo tokens.
         val segments = formatted.entities.mapNotNull { entity ->
+            val typeName = entity.type.javaClass.simpleName
+            if (typeName !in setOf("TextEntityTypeCode", "TextEntityTypePre", "TextEntityTypePreCode")) {
+                return@mapNotNull null
+            }
             val start = entity.offset.coerceAtLeast(0)
             val end = (start + entity.length).coerceAtMost(body.length)
             if (start >= end) null else body.substring(start, end)
@@ -281,9 +318,10 @@ class PromoTelegramService : Service() {
     }
 
     override fun onDestroy() {
-        if (!TokenStore.getBool("promoAuto")) {
-            client = null
-        }
+        historyScanCancelled = true
+        historyScanJob?.cancel()
+        scope.cancel()
+        if (!TokenStore.getBool("promoAuto")) client = null
         super.onDestroy()
     }
 
