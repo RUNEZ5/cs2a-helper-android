@@ -16,6 +16,8 @@ object PromoCodeParser {
 
     private val ignoredWords = setOf(
         "ПРОМО", "ПРОМОКОД", "ПРОМОЧАТ", "ПРОМОИЗПОСТА", "ИЗ", "ПОСТА",
+        // Bonus/category labels are not redeemable promo codes.
+        "ФРИБЕТ", "ФРИБЕТЫ", "ФРИБЕТА", "FREEBET", "FREEBETS", "FREE_BET", "FREE_BETS",
         "КЕЙС", "CASE", "АКЦИЯ", "КУПИТЬ", "ПОДПИСКУ", "ПОДПИСКА",
         "БОНУС", "ДЕПОЗИТ", "ПОПОЛНЕНИЕ", "TELEGRAM", "БОТ", "BOT",
         "HTTP", "HTTPS", "COPY", "КОПИРОВАТЬ", "ЦЕНА", "ПОДАРОК",
