@@ -14,9 +14,12 @@ object PromoCodeParser {
     fun isExplicitDepositPercentBonus(message: String): Boolean =
         percentRegex.containsMatchIn(message)
 
-    fun extract(message: String): List<String> {
+    fun extract(message: String): List<String> = extract(message, emptyList())
+
+    fun extract(message: String, entityTexts: List<String>): List<String> {
         if (message.isBlank() || isExplicitDepositPercentBonus(message)) return emptyList()
         val found = LinkedHashSet<String>()
+        entityTexts.forEach { normalize(it)?.let(found::add) }
 
         // Telegram posts frequently format the code as inline/pre text. Keep these first.
         Regex("`([^`]{4,80})`").findAll(message).forEach { match ->
