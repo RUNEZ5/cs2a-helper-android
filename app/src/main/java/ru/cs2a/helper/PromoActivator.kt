@@ -1,6 +1,9 @@
 package ru.cs2a.helper
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -18,6 +21,13 @@ object PromoActivator {
         .readTimeout(20, TimeUnit.SECONDS)
         .build()
 
+    // All activation calls share one queue, including calls coming from separate Telegram updates.
+    private val activationMutex = Mutex()
+    private var lastRequestAt = 0L
+    private var blockedUntil = 0L
+    private const val MIN_REQUEST_INTERVAL_MS = 3_000L
+    private const val DEFAULT_RATE_LIMIT_WAIT_MS = 15_000L
+
     data class Result(val code: String, val activated: Boolean, val message: String, val status: Int)
 
     private fun historyKey(jwt: String): String {
@@ -33,41 +43,59 @@ object PromoActivator {
     }
 
     suspend fun activate(code: String, mirror: String): Result = withContext(Dispatchers.IO) {
-        val normalized = PromoCodeParser.extract(code).firstOrNull() ?: code.trim().uppercase()
-        if (normalized.isBlank()) return@withContext Result(code, false, "пустой код", 0)
-        if (mirror !in mirrors) return@withContext Result(normalized, false, "неизвестное зеркало", 0)
-        if (alreadyProcessed(normalized)) return@withContext Result(normalized, false, "уже обработан ранее", 0)
-        val jwt = TokenStore.jwt()
-            ?: return@withContext Result(normalized, false, Api.AUTH_MSG, 0)
-        try {
-            val origin = "https://$mirror"
-            val body = JSONObject().put("code", normalized).toString()
-                .toRequestBody("application/json".toMediaType())
-            val request = Request.Builder()
-                .url("https://onemails.net/discount")
-                .header("Accept", "application/json, text/plain, */*")
-                .header("Content-Type", "application/json")
-                .header("Authorization", "JWT $jwt")
-                .header("Origin", origin)
-                .header("Referer", "$origin/")
-                .post(body)
-                .build()
-            client.newCall(request).execute().use { response ->
-                val raw = response.body?.string().orEmpty()
-                val root = try { JSONObject(raw) } catch (_: Exception) { JSONObject() }
-                val data = root.optJSONObject("data") ?: root
-                val activated = response.isSuccessful && data.optBoolean("isActivate", false)
-                val message = when {
-                    activated -> "активирован"
-                    data.optString("error").isNotBlank() -> data.optString("error")
-                    root.optString("message").isNotBlank() -> root.optString("message")
-                    else -> "HTTP ${response.code}: ${raw.take(180)}"
+        activationMutex.withLock {
+            val normalized = PromoCodeParser.extract(code).firstOrNull() ?: code.trim().uppercase()
+            if (normalized.isBlank()) return@withLock Result(code, false, "пустой код", 0)
+            if (mirror !in mirrors) return@withLock Result(normalized, false, "неизвестное зеркало", 0)
+            if (alreadyProcessed(normalized)) return@withLock Result(normalized, false, "уже обработан ранее", 0)
+            val jwt = TokenStore.jwt()
+                ?: return@withLock Result(normalized, false, Api.AUTH_MSG, 0)
+
+            try {
+                val now = System.currentTimeMillis()
+                val allowedAt = maxOf(lastRequestAt + MIN_REQUEST_INTERVAL_MS, blockedUntil)
+                val waitMs = allowedAt - now
+                if (waitMs > 0) delay(waitMs)
+                lastRequestAt = System.currentTimeMillis()
+
+                val origin = "https://$mirror"
+                val body = JSONObject().put("code", normalized).toString()
+                    .toRequestBody("application/json".toMediaType())
+                val request = Request.Builder()
+                    .url("https://onemails.net/discount")
+                    .header("Accept", "application/json, text/plain, */*")
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "JWT $jwt")
+                    .header("Origin", origin)
+                    .header("Referer", "$origin/")
+                    .post(body)
+                    .build()
+                client.newCall(request).execute().use { response ->
+                    val raw = response.body?.string().orEmpty()
+                    val root = try { JSONObject(raw) } catch (_: Exception) { JSONObject() }
+                    val data = root.optJSONObject("data") ?: root
+                    val activated = response.isSuccessful && data.optBoolean("isActivate", false)
+                    val retryAfterSeconds = response.header("Retry-After")?.toLongOrNull()
+                    if (response.code == 429) {
+                        val retryMs = (retryAfterSeconds?.coerceAtLeast(1)?.times(1_000L))
+                            ?: DEFAULT_RATE_LIMIT_WAIT_MS
+                        blockedUntil = maxOf(blockedUntil, System.currentTimeMillis() + retryMs)
+                    }
+                    val message = when {
+                        activated -> "активирован"
+                        response.code == 429 -> "Сервер ограничил частоту запросов. Очередь приостановлена на ${((blockedUntil - System.currentTimeMillis()).coerceAtLeast(0) / 1000)} сек."
+                        data.optString("error").isNotBlank() -> data.optString("error")
+                        root.optString("message").isNotBlank() -> root.optString("message")
+                        else -> "HTTP ${response.code}: ${raw.take(180)}"
+                    }
+                    if (response.code != 429 && response.code !in 500..599) {
+                        remember(normalized, mirror, activated, message, jwt)
+                    }
+                    Result(normalized, activated, message, response.code)
                 }
-                remember(normalized, mirror, activated, message, jwt)
-                Result(normalized, activated, message, response.code)
+            } catch (e: Exception) {
+                Result(normalized, false, e.message ?: "ошибка сети", 0)
             }
-        } catch (e: Exception) {
-            Result(normalized, false, e.message ?: "ошибка сети", 0)
         }
     }
 
