@@ -44,6 +44,9 @@ object TokenStore {
     }
     fun clearJwt() { if (ready) secure.edit().remove("jwt").remove("jwtExp").apply() }
 
+    fun saveSecret(key: String, value: String) { if (ready) secure.edit().putString(key, value).apply() }
+    fun getSecret(key: String): String = if (ready) secure.getString(key, "") ?: "" else ""
+
     fun decodeJwtPayload(token: String): JSONObject? {
         return try {
             val parts = token.split(".")
