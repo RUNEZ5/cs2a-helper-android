@@ -41,7 +41,8 @@ jobs:
         run: |
           gh release create "v${{ github.run_number }}" \
             "app/build/outputs/apk/debug/cs2a-helper-v${{ github.run_number }}.apk" \
-            --title "Сборка ${{ github.run_number }}" \
+            --title "CS2A Помощник 1.0.${{ github.run_number }} (build ${{ github.run_number }})" \
+            --latest \
             --notes "Автосборка из коммита ${{ github.sha }}."
         env:
           GH_TOKEN: ${{ github.token }}
