@@ -39,7 +39,7 @@ object PromoCodeParser {
     }
 
     private fun normalize(raw: String): String? {
-        val cleaned = raw.trim().trim(' ', '\\t', '\\n', '.', ',', ':', ';', '!', '?', '(', ')', '[', ']', '{', '}', '"', '\\'')
+        val cleaned = raw.trim().trim { !it.isLetterOrDigit() }
             .replace(Regex("[^\\p{L}\\p{N}]"), "")
             .uppercase()
         if (cleaned.length !in 4..40) return null
