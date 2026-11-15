@@ -8,10 +8,10 @@ package ru.cs2a.helper
 object PromoCodeParser {
     private val tokenRegex = Regex("(?<![\\p{L}\\p{N}])[\\p{L}\\p{N}]{4,40}(?![\\p{L}\\p{N}])")
     private val numericRegex = Regex("(?<!\\d)\\d{8,32}(?!\\d)")
-    private val ignoredWords = setOf("ПРОМОЧАТ", "ПРОМОКОД", "АКЦИЯ", "КУПИТЬ", "ПОДПИСКУ", "ПОДПИСКА", "КЕЙС", "БОНУС", "ДЕПОЗИТ", "ПОПОЛНЕНИЕ", "ПРОМО", "TELEGRAM", "HTTP", "HTTPS", "BOT")
+    private val ignoredWords = setOf("ПРОМОЧАТ", "ПРОМОКОД", "ПРОМОИЗПОСТА", "АКЦИЯ", "КУПИТЬ", "ПОДПИСКУ", "ПОДПИСКА", "КЕЙС", "БОНУС", "ДЕПОЗИТ", "ПОПОЛНЕНИЕ", "ПРОМО", "TELEGRAM", "HTTP", "HTTPS", "BOT")
     // Do not submit codes from posts mentioning deposit/top-up requirements,
     // including fixed-sum and non-percentage conditions.
-    private val depositConditionRegex = Regex("(?i)депозит\\\\w*|deposit\\\\w*|пополн\\\\w*|top\\\\s?up|минимальн\\\\w*\\\\s+(?:депозит|пополн)")
+    private val depositConditionRegex = Regex("""(?iu)депозит\w*|deposit\w*|пополн\w*|top\s?up|минимальн\w*\s+(?:депозит|пополн)""")
 
     fun isDepositRelated(message: String): Boolean =
         depositConditionRegex.containsMatchIn(message)
@@ -55,6 +55,7 @@ object PromoCodeParser {
             .replace(Regex("[^\\p{L}\\p{N}]"), "")
             .uppercase()
         if (cleaned.length !in 4..40) return null
+        if (cleaned in ignoredWords) return null
         if (!cleaned.any(Char::isLetter) && !numericRegex.matches(cleaned)) return null
         return cleaned
     }
