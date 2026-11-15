@@ -8,6 +8,7 @@ package ru.cs2a.helper
 object PromoCodeParser {
     private val tokenRegex = Regex("(?<![\\p{L}\\p{N}])[\\p{L}\\p{N}]{4,40}(?![\\p{L}\\p{N}])")
     private val numericRegex = Regex("(?<!\\d)\\d{8,32}(?!\\d)")
+    private val ignoredWords = setOf("ПРОМОЧАТ", "ПРОМОКОД", "АКЦИЯ", "КУПИТЬ", "ПОДПИСКУ", "ПОДПИСКА", "КЕЙС", "БОНУС", "ДЕПОЗИТ", "ПОПОЛНЕНИЕ", "ПРОМО", "TELEGRAM", "HTTP", "HTTPS", "BOT")
     private val percentRegex = Regex("(?i)(?:депозит|deposit|пополнен|пополнить|бонус)[^\\n]{0,45}\\+?\\d{1,3}\\s*%|\\+\\s*\\d{1,3}\\s*%[^\\n]{0,45}(?:депозит|deposit|пополнен|бонус)")
 
     fun isExplicitDepositPercentBonus(message: String): Boolean =
@@ -31,9 +32,12 @@ object PromoCodeParser {
         }
 
         tokenRegex.findAll(message).forEach { match ->
-            normalize(match.value)?.let { code ->
-                if (code.any(Char::isLetter) || numericRegex.matches(code)) found.add(code)
-            }
+            val raw = match.value
+            val code = normalize(raw)
+            // Avoid ordinary sentence words and channel headings. Unformatted candidates
+            // must look like promo tokens: uppercase or alphanumeric.
+            val looksLikeCode = raw.any(Char::isDigit) || raw == raw.uppercase()
+            if (code != null && looksLikeCode && code !in ignoredWords) found.add(code)
         }
         return found.toList()
     }
