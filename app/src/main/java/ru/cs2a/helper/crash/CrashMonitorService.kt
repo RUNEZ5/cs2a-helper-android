@@ -116,21 +116,38 @@ class CrashMonitorService : Service() {
         TokenStore.setString("crashLastRoundId", roundId)
         scope.launch {
             try {
-                val balance = Api.crashBalance()
                 val allIn = TokenStore.getBool("crashAllIn")
-                val amount = if (allIn) balance else TokenStore.getString("crashAmount", "0.10").toDoubleOrNull() ?: 0.0
-                if (amount <= 0.0) throw IllegalStateException("недостаточно средств для ставки")
-                if (amount > balance + 1e-9) throw IllegalStateException("баланс $balance меньше ставки $amount")
+                // Fixed stake: send create-bet directly. A preliminary current-state request
+                // used to block every normal bet when the balance endpoint was unavailable.
+                // ALL IN alone needs a fresh balance to calculate the stake safely.
+                val amount = if (allIn) {
+                    Api.crashBalance()
+                } else {
+                    TokenStore.getString("crashAmount", "0.10").replace(',', '.').toDoubleOrNull() ?: 0.0
+                }
+                if (!amount.isFinite() || amount <= 0.0) throw IllegalStateException("сумма ставки должна быть больше нуля")
                 if (!TokenStore.getBool("crashAutoRunning")) return@launch
 
-                val multiplier = TokenStore.getString("crashAutoMultiplier", "1.25").toDoubleOrNull() ?: 1.25
+                val multiplier = TokenStore.getString("crashAutoMultiplier", "1.25").replace(',', '.').toDoubleOrNull()
+                    ?: throw IllegalStateException("некорректный автовывод")
+                if (!multiplier.isFinite() || multiplier < 1.0) throw IllegalStateException("автовывод должен быть не меньше 1.00")
                 val result = Api.createCrashBet(multiplier, amount)
                 val outer = result.data ?: JSONObject()
                 val inner = outer.optJSONObject("data") ?: outer
                 val failed = result.unauthorized || result.error != null || result.status !in 200..299 ||
                     outer.optBoolean("success", true).not() || inner.optBoolean("success", true).not() ||
                     outer.has("error") || inner.has("error")
-                if (failed) throw IllegalStateException(result.error ?: outer.optString("error").ifBlank { inner.optString("error").ifBlank { "HTTP ${result.status}" } })
+                if (failed) {
+                    val reason = result.error
+                        ?: outer.optString("error").ifBlank {
+                            outer.optString("message").ifBlank {
+                                inner.optString("error").ifBlank {
+                                    inner.optString("message").ifBlank { "HTTP ${result.status}" }
+                                }
+                            }
+                        }
+                    throw IllegalStateException(reason)
+                }
 
                 val done = TokenStore.getInt("crashRoundsDone", 0) + 1
                 val total = TokenStore.getInt("crashRoundsTotal", 0)
