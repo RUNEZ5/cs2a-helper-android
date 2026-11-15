@@ -1,5 +1,6 @@
 package ru.cs2a.helper
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
@@ -122,6 +123,9 @@ object PromoActivator {
                 })
             }
             Result(normalized, false, "запрос отправлен; ожидание ответа не блокирует очередь", 0)
+        } catch (e: CancellationException) {
+            pending.remove(normalized)
+            throw e
         } catch (e: Exception) {
             pending.remove(normalized)
             Result(normalized, false, e.message ?: "ошибка отправки", 0)
