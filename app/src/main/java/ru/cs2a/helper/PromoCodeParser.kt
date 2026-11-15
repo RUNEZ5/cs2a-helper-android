@@ -25,8 +25,10 @@ object PromoCodeParser {
         "ПРОМО ИЗ ПОСТА", "PROMO FROM POST", "КУПИТЬ ПОДПИСКУ",
         "ПОДПИСКУ В TELEGRAM", "TELEGRAM-БОТ"
     )
+    // Exclude only explicit percentage deposit bonuses. A fixed top-up condition
+    // or a mention of deposit alone must not suppress an otherwise valid promo code.
     private val depositConditionRegex = Regex(
-        """(?iu)депозит\w*|deposit\w*|пополн\w*|top[\s-]?up|minimum\s+(?:deposit|top[\s-]?up)"""
+        """(?iu)(?:\+\s*)?\d{1,3}\s*%\s*(?:к\s*)?(?:депозит\w*|deposit\w*)|(?:депозит\w*|deposit\w*)[^\n]{0,40}(?:\+\s*)?\d{1,3}\s*%"""
     )
 
     fun isDepositRelated(message: String): Boolean =
