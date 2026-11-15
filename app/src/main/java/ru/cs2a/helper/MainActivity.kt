@@ -465,12 +465,7 @@ class MainActivity : AppCompatActivity() {
         // Promo-сервис работает в фоне, поэтому экран должен читать его актуальный статус
         // и журнал из TokenStore/Logs, а не оставаться на стартовой надписи.
         findViewById<TextView>(R.id.promoStatus).text =
-            if (TokenStore.getBool("promoAuto")) {
-                TokenStore.getString("promoStatus", "Подключаюсь к Telegram…")
-                    .ifBlank { "Подключаюсь к Telegram…" }
-            } else {
-                "Остановлено"
-            }
+            TokenStore.getString("promoStatus", "Остановлено").ifBlank { "Остановлено" }
         findViewById<TextView>(R.id.promoLog).text = Logs.render(this, "promo", 60)
 
         ActivityStatusService.sync(this)
