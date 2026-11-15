@@ -90,7 +90,9 @@ object PromoCodeParser {
 
         val normalized = candidate.uppercase()
         if (normalized in ignoredWords) return null
-        if (normalized.contains("ПРОМОИЗПОСТА")) return null
+        // "ПРОМО..." labels and headings are prose, never redeemable codes.
+        if (normalized.startsWith("ПРОМО")) return null
+        if (normalized.contains("PROMO")) return null
         if (!normalized.any(Char::isLetter) && !numericRegex.matches(normalized)) return null
         return normalized
     }
