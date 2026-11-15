@@ -55,6 +55,7 @@ object PromoCodeParser {
             .replace(Regex("[^\\p{L}\\p{N}]"), "")
             .uppercase()
         if (cleaned.length !in 4..40) return null
+        if (cleaned in ignoredWords) return null
         if (!cleaned.any(Char::isLetter) && !numericRegex.matches(cleaned)) return null
         return cleaned
     }
