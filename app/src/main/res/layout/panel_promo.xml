@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView style="@style/CardLabel" android:text="Telegram · публичный канал @promo_runs" android:layout_marginTop="0dp" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="Первый запуск просматривает выбранный период, затем новые публикации обрабатываются сразу после получения обновления Telegram."
+        android:textColor="@color/textDim" android:textSize="12sp" />
+
+    <TextView style="@style/CardLabel" android:text="Telegram API ID" />
+    <EditText android:id="@+id/promoApiId" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:inputType="number" android:singleLine="true" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
+
+    <TextView style="@style/CardLabel" android:text="Telegram API Hash" />
+    <EditText android:id="@+id/promoApiHash" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:inputType="textVisiblePassword" android:singleLine="true" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
+
+    <TextView style="@style/CardLabel" android:text="Номер телефона Telegram" />
+    <EditText android:id="@+id/promoPhone" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:inputType="phone" android:singleLine="true" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
+
+    <TextView style="@style/CardLabel" android:text="Зеркало для активации (выбирается вручную)" />
+    <Spinner android:id="@+id/promoMirror" android:layout_width="match_parent" android:layout_height="48dp" />
+
+    <TextView style="@style/CardLabel" android:text="Первичная проверка истории" />
+    <Spinner android:id="@+id/promoScanPeriod" android:layout_width="match_parent" android:layout_height="48dp" />
+
+    <Button android:id="@+id/promoStartBtn" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="Сохранить настройки и подключить Telegram" android:layout_marginTop="10dp" />
+
+    <TextView style="@style/CardLabel" android:text="Код входа Telegram" />
+    <EditText android:id="@+id/promoLoginCode" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:inputType="number" android:singleLine="true" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
+    <Button android:id="@+id/promoSubmitCodeBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Подтвердить код" />
+
+    <TextView style="@style/CardLabel" android:text="Пароль двухэтапной аутентификации (если запрошен)" />
+    <EditText android:id="@+id/promoPassword" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:inputType="textPassword" android:singleLine="true" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
+    <Button android:id="@+id/promoSubmitPasswordBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Подтвердить пароль" />
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+        <Button android:id="@+id/promoStopBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Остановить мониторинг" />
+    </LinearLayout>
+
+    <TextView android:id="@+id/promoStatus" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="Остановлено" android:textColor="@color/textDim" android:layout_marginTop="8dp" />
+    <TextView style="@style/CardLabel" android:text="Найденные коды и результаты активации" />
+    <TextView android:id="@+id/promoLog" style="@style/LogText" android:text="" />
+</LinearLayout>
