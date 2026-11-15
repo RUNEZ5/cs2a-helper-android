@@ -25,7 +25,7 @@ object PromoActivator {
     private val activationMutex = Mutex()
     private var lastRequestAt = 0L
     private var blockedUntil = 0L
-    private const val MIN_REQUEST_INTERVAL_MS = 2_000L
+    private const val MIN_REQUEST_INTERVAL_MS = 5_000L
     private const val DEFAULT_RATE_LIMIT_WAIT_MS = 15_000L
 
     data class Result(val code: String, val activated: Boolean, val message: String, val status: Int)
@@ -89,9 +89,12 @@ object PromoActivator {
                     val message = when {
                         activated -> "активирован"
                         response.code == 429 -> "Сервер ограничил частоту запросов. Очередь приостановлена на ${((blockedUntil - System.currentTimeMillis()).coerceAtLeast(0) / 1000)} сек."
-                        data.optString("error").isNotBlank() -> data.optString("error")
-                        root.optString("message").isNotBlank() -> root.optString("message")
-                        else -> "HTTP ${response.code}: ${raw.take(180)}"
+                        data.optString("error").isNotBlank() -> data.optString("error").take(120)
+                        root.optString("message").isNotBlank() -> root.optString("message").take(120)
+                        raw.trimStart().startsWith("<") && response.code == 502 -> "HTTP 502: ошибка шлюза сервера (HTML-ответ скрыт)"
+                        raw.trimStart().startsWith("<") && response.code == 403 -> "HTTP 403: сервер запретил запрос (HTML-ответ скрыт)"
+                        raw.trimStart().startsWith("<") -> "HTTP ${response.code}: сервер вернул HTML вместо JSON"
+                        else -> "HTTP ${response.code}: ${raw.take(120)}"
                     }
                     if (response.code != 429 && response.code !in 500..599) {
                         remember(normalized, mirror, activated, message, jwt)
