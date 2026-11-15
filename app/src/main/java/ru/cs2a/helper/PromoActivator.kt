@@ -1,0 +1,74 @@
+package ru.cs2a.helper
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.concurrent.TimeUnit
+
+object PromoActivator {
+    val mirrors = listOf("cs2a.run", "csgouv.run", "cs2run.bet", "cs2b.run", "cs2t.run", "runcase.org", "csgorun.games")
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .build()
+
+    data class Result(val code: String, val activated: Boolean, val message: String, val status: Int)
+
+    fun alreadyProcessed(code: String): Boolean {
+        val history = try { JSONArray(TokenStore.getString("promoHistory", "[]")) } catch (_: Exception) { JSONArray() }
+        for (i in 0 until history.length()) if (history.optJSONObject(i)?.optString("code") == code) return true
+        return false
+    }
+
+    suspend fun activate(code: String, mirror: String): Result = withContext(Dispatchers.IO) {
+        val normalized = PromoCodeParser.extract(code).firstOrNull() ?: code.trim().uppercase()
+        if (normalized.isBlank()) return@withContext Result(code, false, "пустой код", 0)
+        if (mirror !in mirrors) return@withContext Result(normalized, false, "неизвестное зеркало", 0)
+        if (alreadyProcessed(normalized)) return@withContext Result(normalized, false, "уже обработан ранее", 0)
+        val jwt = TokenStore.jwt()
+            ?: return@withContext Result(normalized, false, Api.AUTH_MSG, 0)
+        try {
+            val origin = "https://$mirror"
+            val body = JSONObject().put("code", normalized).toString()
+                .toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url("https://onemails.net/discount")
+                .header("Accept", "application/json, text/plain, */*")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "JWT $jwt")
+                .header("Origin", origin)
+                .header("Referer", "$origin/")
+                .post(body)
+                .build()
+            client.newCall(request).execute().use { response ->
+                val raw = response.body?.string().orEmpty()
+                val root = try { JSONObject(raw) } catch (_: Exception) { JSONObject() }
+                val data = root.optJSONObject("data") ?: root
+                val activated = response.isSuccessful && data.optBoolean("isActivate", false)
+                val message = when {
+                    activated -> "активирован"
+                    data.optString("error").isNotBlank() -> data.optString("error")
+                    root.optString("message").isNotBlank() -> root.optString("message")
+                    else -> "HTTP ${response.code}: ${raw.take(180)}"
+                }
+                remember(normalized, mirror, activated, message)
+                Result(normalized, activated, message, response.code)
+            }
+        } catch (e: Exception) {
+            Result(normalized, false, e.message ?: "ошибка сети", 0)
+        }
+    }
+
+    private fun remember(code: String, mirror: String, activated: Boolean, message: String) {
+        val history = try { JSONArray(TokenStore.getString("promoHistory", "[]")) } catch (_: Exception) { JSONArray() }
+        history.put(JSONObject().put("code", code).put("mirror", mirror)
+            .put("activated", activated).put("message", message).put("time", System.currentTimeMillis()))
+        while (history.length() > 500) history.remove(0)
+        TokenStore.setString("promoHistory", history.toString())
+    }
+}
