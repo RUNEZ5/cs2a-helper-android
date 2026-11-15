@@ -185,9 +185,22 @@ class MainActivity : AppCompatActivity() {
             TokenStore.saveSecret("promoPhone", number)
             TokenStore.setString("promoMirror", PromoActivator.mirrors[mirror.selectedItemPosition])
             TokenStore.setInt("promoScanDays", periodDays[period.selectedItemPosition])
-            TokenStore.setBool("promoAuto", true)
+            TokenStore.setBool("promoAuto", false)
+            TokenStore.setBool("promoScanRequested", false)
             PromoTelegramService.start(this)
             findViewById<TextView>(R.id.promoStatus).text = "Подключаюсь к Telegram…"
+        }
+        findViewById<Button>(R.id.promoScanBtn).setOnClickListener {
+            PromoTelegramService.scanHistory(this)
+            findViewById<TextView>(R.id.promoStatus).text = "Проверяю историю @promo_runs…"
+        }
+        findViewById<Button>(R.id.promoMonitorBtn).setOnClickListener {
+            if (!TokenStore.isApiTokenValid()) {
+                Toast.makeText(this, "Сначала войдите на выбранное зеркало CS2A во вкладке «Статус»", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            PromoTelegramService.startMonitoring(this)
+            findViewById<TextView>(R.id.promoStatus).text = "Запускаю мониторинг @promo_runs…"
         }
         findViewById<Button>(R.id.promoSubmitCodeBtn).setOnClickListener {
             val value = code.text.toString().trim()
