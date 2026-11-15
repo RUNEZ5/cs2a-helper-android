@@ -49,4 +49,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.webkit:webkit:1.11.0")
+    // TDLib native JNI client for Telegram MTProto sessions.
+    implementation("io.github.tdlib-android:core:0.1.1")
 }
