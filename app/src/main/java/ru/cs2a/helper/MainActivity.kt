@@ -356,6 +356,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshLoop() {
         refreshStatus(); refreshLogs()
+        ActivityStatusService.sync(this)
         handler.postDelayed({ refreshLoop() }, 3000)
     }
 }
