@@ -16,6 +16,8 @@ class App : Application() {
             nm.createNotificationChannel(
                 NotificationChannel(CHANNEL_SPAM, "Спам в чат (служба)", NotificationManager.IMPORTANCE_LOW)
             )
+            nm.createNotificationChannel(NotificationChannel(CHANNEL_ACTIVITY, "Работа CS2AHelper", NotificationManager.IMPORTANCE_LOW))
+            nm.createNotificationChannel(NotificationChannel(CHANNEL_PROMO, "Мониторинг промокодов Telegram", NotificationManager.IMPORTANCE_LOW))
             nm.createNotificationChannel(
                 NotificationChannel(CHANNEL_CRASH, "Автоставки Crash", NotificationManager.IMPORTANCE_LOW)
             )
@@ -25,6 +27,8 @@ class App : Application() {
     companion object {
         const val CHANNEL_BG = "cs2a_bg"
         const val CHANNEL_SPAM = "cs2a_spam"
+        const val CHANNEL_ACTIVITY = "cs2a_activity"
+        const val CHANNEL_PROMO = "cs2a_promo"
         const val CHANNEL_CRASH = "cs2a_crash"
     }
 }
