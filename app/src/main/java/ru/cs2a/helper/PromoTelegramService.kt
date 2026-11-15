@@ -35,6 +35,7 @@ class PromoTelegramService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent == null && TokenStore.getBool("promoAuto") && client == null) startClient()
         when (intent?.action) {
             ACTION_STOP -> {
                 TokenStore.setBool("promoAuto", false)
@@ -46,6 +47,7 @@ class PromoTelegramService : Service() {
             }
             ACTION_CODE -> {
                 val code = TokenStore.getString("promoLoginCode")
+                TokenStore.setString("promoLoginCode", "")
                 if (code.isNotBlank()) client?.send(TdApi.CheckAuthenticationCode(code), authResult("код отправлен"))
                 return START_STICKY
             }
@@ -63,7 +65,7 @@ class PromoTelegramService : Service() {
         if (client != null) return
         val apiId = TokenStore.getString("promoApiId").toIntOrNull()
         val apiHash = TokenStore.getSecret("promoApiHash")
-        val phone = TokenStore.getString("promoPhone")
+        val phone = TokenStore.getSecret("promoPhone")
         if (apiId == null || apiId <= 0 || apiHash.isBlank() || phone.isBlank()) {
             status("Заполните API ID, API Hash и номер телефона")
             stopSelf()
@@ -116,6 +118,8 @@ class PromoTelegramService : Service() {
                 is TdApi.AuthorizationStateWaitCode -> status("Telegram отправил код. Введите его в приложении")
                 is TdApi.AuthorizationStateWaitPassword -> status("Требуется пароль двухэтапной аутентификации")
                 is TdApi.AuthorizationStateReady -> {
+                    TokenStore.saveSecret("promo2fa", "")
+                    TokenStore.setString("promoLoginCode", "")
                     TokenStore.setBool("promoAuto", true)
                     status("Telegram подключён · ищу @promo_runs")
                     findChannel()
