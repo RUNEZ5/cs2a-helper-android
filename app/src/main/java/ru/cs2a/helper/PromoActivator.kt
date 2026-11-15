@@ -25,7 +25,7 @@ object PromoActivator {
     private val activationMutex = Mutex()
     private var lastRequestAt = 0L
     private var blockedUntil = 0L
-    private const val MIN_REQUEST_INTERVAL_MS = 3_000L
+    private const val MIN_REQUEST_INTERVAL_MS = 2_000L
     private const val DEFAULT_RATE_LIMIT_WAIT_MS = 15_000L
 
     data class Result(val code: String, val activated: Boolean, val message: String, val status: Int)
