@@ -18,6 +18,8 @@ class ActivityStatusService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         TokenStore.init(this)
         val active = activeFeatures()
+        running = true
+        activeSignature = active.joinToString("|")
         if (active.isEmpty()) {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf(startId)
@@ -50,21 +52,35 @@ class ActivityStatusService : Service() {
             .build()
     }
 
+    override fun onDestroy() {
+        running = false
+        activeSignature = ""
+        super.onDestroy()
+    }
+
     companion object {
+        @Volatile private var running = false
+        @Volatile private var activeSignature = ""
         private const val NOTIFICATION_ID = 41
 
         /** Reconciles the persistent notification with the user's enabled background tasks. */
         fun sync(context: Context) {
             val app = context.applicationContext
             TokenStore.init(app)
-            val enabled = TokenStore.getBool("rafflesAuto") ||
-                TokenStore.getBool("farmAuto") ||
-                TokenStore.getBool("cashbackAuto") ||
-                TokenStore.getBool("promoAuto")
+            val features = buildList {
+                if (TokenStore.getBool("rafflesAuto")) add("розыгрыши")
+                if (TokenStore.getBool("farmAuto") || TokenStore.getBool("cashbackAuto")) add("яйца и кэшбек")
+                if (TokenStore.getBool("promoAuto")) add("промокоды")
+            }
+            val signature = features.joinToString("|")
             val intent = Intent(app, ActivityStatusService::class.java)
-            if (enabled) {
+            if (features.isNotEmpty()) {
+                if (running && activeSignature == signature) return
+
                 androidx.core.content.ContextCompat.startForegroundService(app, intent)
             } else {
+                running = false
+                activeSignature = ""
                 app.stopService(intent)
             }
         }
