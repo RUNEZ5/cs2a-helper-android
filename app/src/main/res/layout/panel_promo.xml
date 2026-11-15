@@ -15,7 +15,7 @@
 
     <TextView style="@style/CardLabel" android:text="Telegram API Hash" />
     <EditText android:id="@+id/promoApiHash" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:inputType="textVisiblePassword" android:singleLine="true" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
+        android:inputType="textPassword" android:singleLine="true" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
 
     <TextView style="@style/CardLabel" android:text="Номер телефона Telegram" />
     <EditText android:id="@+id/promoPhone" android:layout_width="match_parent" android:layout_height="wrap_content"
