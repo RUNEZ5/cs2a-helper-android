@@ -43,6 +43,10 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
         <service
+            android:name=".ActivityStatusService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        <service
             android:name=".crash.CrashMonitorService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
