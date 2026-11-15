@@ -311,8 +311,17 @@ class PromoTelegramService : Service() {
                 Logs.add(this@PromoTelegramService, "promo", "Найден код: $code · новый пост", "ok")
             }
             val mirror = TokenStore.getString("promoMirror", "cs2a.run")
-            val result = PromoActivator.activate(code, mirror)
-            Logs.add(this@PromoTelegramService, "promo", "${result.code}: ${result.message} (HTTP ${result.status})", if (result.activated) "ok" else "bad")
+            val result = PromoActivator.enqueue(code, mirror) { response ->
+                Logs.add(
+                    this@PromoTelegramService,
+                    "promo",
+                    "${response.code}: ${response.message}" + if (response.status > 0) " (HTTP ${response.status})" else "",
+                    if (response.activated) "ok" else "bad"
+                )
+            }
+            if (result.message != "запрос отправлен; ожидание ответа не блокирует очередь") {
+                Logs.add(this@PromoTelegramService, "promo", "${result.code}: ${result.message}", "bad")
+            }
         }
     }
 
