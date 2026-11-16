@@ -30,10 +30,38 @@ object TokenStore {
 
     fun saveJwt(token: String) {
         val payload = decodeJwtPayload(token)
-        secure.edit().putString("jwt", token)
+        val user = payload?.optJSONObject("user") ?: payload?.optJSONObject("profile")
+        val userId = claim(payload, user, arrayOf("id", "userId", "user_id", "sub"))
+        val username = claim(payload, user, arrayOf("username", "userName", "login", "nickname", "preferred_username", "displayName", "name"))
+        val editor = secure.edit()
+            .putString("jwt", token)
             .putLong("jwtExp", (payload?.optDouble("exp", 0.0)?.times(1000))?.toLong() ?: 0L)
-            .apply()
+            .putString("csgorunUserId", userId)
+            .putString("csgorunUsername", username?.take(80) ?: "")
+        if (userId != csgorunUserId()) editor.remove("csgorunLinkedUserId")
+        editor.apply()
     }
+
+    private fun claim(root: JSONObject?, nested: JSONObject?, names: Array<String>): String? {
+        for (name in names) {
+            val value = root?.opt(name)
+            if (value != null && value != JSONObject.NULL) {
+                val text = value.toString().trim()
+                if (text.isNotBlank() && text != "0" && text != "false") return text
+            }
+            val nestedValue = nested?.opt(name)
+            if (nestedValue != null && nestedValue != JSONObject.NULL) {
+                val text = nestedValue.toString().trim()
+                if (text.isNotBlank()) return text
+            }
+        }
+        return null
+    }
+
+    fun csgorunUserId(): String? = if (ready) secure.getString("csgorunUserId", null) else null
+    fun csgorunUsername(): String = if (ready) secure.getString("csgorunUsername", "") ?: "" else ""
+    fun markCsgorunLinked(userId: String) { if (ready) secure.edit().putString("csgorunLinkedUserId", userId).apply() }
+    fun csgorunLinkedUserId(): String? = if (ready) secure.getString("csgorunLinkedUserId", null) else null
 
     fun jwt(): String? = if (ready) secure.getString("jwt", null) else null
     fun jwtExp(): Long = if (ready) secure.getLong("jwtExp", 0L) else 0L

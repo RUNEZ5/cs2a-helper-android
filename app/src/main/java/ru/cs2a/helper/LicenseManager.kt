@@ -51,6 +51,22 @@ object LicenseManager {
         post("/api/validate", payload)
     }
 
+    suspend fun linkCsgorunAccount(context: Context): LicenseResponse = withContext(Dispatchers.IO) {
+        val userId = TokenStore.csgorunUserId()
+            ?: return@withContext LicenseResponse(false, message = "Не удалось определить ID аккаунта CSGORun из JWT.")
+        if (!TokenStore.isApiTokenValid()) return@withContext LicenseResponse(false, message = "Токен CSGORun устарел — войдите в аккаунт заново.")
+        val licenseToken = TokenStore.getSecret("licenseToken")
+        if (licenseToken.isBlank()) return@withContext LicenseResponse(false, message = "Сначала активируйте лицензию.")
+        val payload = JSONObject()
+            .put("licenseToken", licenseToken)
+            .put("deviceId", deviceId(context))
+            .put("userId", userId)
+            .put("username", TokenStore.csgorunUsername())
+        val result = post("/api/account/link", payload)
+        if (result.valid) TokenStore.markCsgorunLinked(userId)
+        result
+    }
+
     private fun post(path: String, payload: JSONObject): LicenseResponse {
         val request = Request.Builder()
             .url(BASE_URL + path)
@@ -73,6 +89,8 @@ object LicenseManager {
                     LicenseResponse(false, message = when (error) {
                         "key_unavailable" -> "Ключ недействителен, уже использован или заблокирован."
                         "invalid_key" -> "Проверьте правильность введённого ключа."
+                        "user_banned" -> "Этот аккаунт CSGORun заблокирован администратором."
+                        "license_already_linked_to_another_account" -> "Эта лицензия уже привязана к другому аккаунту CSGORun."
                         else -> "Не удалось подтвердить лицензию ($error)."
                     })
                 }

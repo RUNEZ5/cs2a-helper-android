@@ -11,6 +11,8 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 import org.json.JSONTokener
 
@@ -23,6 +25,7 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private val handler = Handler(Looper.getMainLooper())
     private var polling = true
+    private var accountSyncAttempted = false
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,6 +61,18 @@ class LoginActivity : AppCompatActivity() {
                 TokenStore.saveJwt(token)
                 if (TokenStore.isApiTokenValid()) Toast.makeText(this, "Токен получен ✅", Toast.LENGTH_SHORT).show()
             }
+            if (!accountSyncAttempted && TokenStore.isApiTokenValid()) {
+                accountSyncAttempted = true
+                lifecycleScope.launch {
+                    val linked = LicenseManager.linkCsgorunAccount(this@LoginActivity)
+                    if (!linked.valid) {
+                        Toast.makeText(this@LoginActivity, linked.message, Toast.LENGTH_LONG).show()
+                        if (linked.message.contains("заблокирован", ignoreCase = true)) TokenStore.saveSecret("licenseToken", "")
+                    } else {
+                        Toast.makeText(this@LoginActivity, "Аккаунт CSGORun привязан к лицензии ✅", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
             if (polling) handler.postDelayed({ pollToken() }, 1000)
         }
     }
@@ -70,7 +85,21 @@ class LoginActivity : AppCompatActivity() {
                     "jwt" -> {
                         try {
                             val token = JSONObject(json).optString("token")
-                            if (token.isNotBlank()) TokenStore.saveJwt(token)
+                            if (token.isNotBlank()) {
+                                TokenStore.saveJwt(token)
+                                if (!accountSyncAttempted) {
+                                    accountSyncAttempted = true
+                                    lifecycleScope.launch {
+                                        val linked = LicenseManager.linkCsgorunAccount(this@LoginActivity)
+                                        if (!linked.valid) {
+                                            Toast.makeText(this@LoginActivity, linked.message, Toast.LENGTH_LONG).show()
+                                            if (linked.message.contains("заблокирован", ignoreCase = true)) TokenStore.saveSecret("licenseToken", "")
+                                        } else {
+                                            Toast.makeText(this@LoginActivity, "Аккаунт CSGORun привязан к лицензии ✅", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                }
+                            }
                         } catch (e: Exception) { }
                     }
                     "learned" -> {
