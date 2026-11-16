@@ -9,7 +9,8 @@ const ADMIN_HTML = String.raw`<!doctype html>
 <section class="card" id="login"><h2>Вход администратора</h2><div class="row"><input id="secret" type="password" autocomplete="off" placeholder="ADMIN_SECRET"><button id="loginBtn">Войти</button></div><div class="status" id="loginStatus"></div></section>
 <div id="panel" class="hidden">
 <section class="card"><h2>Создать лицензионный ключ</h2><div class="row"><input id="days" type="number" min="1" max="36500" placeholder="Срок в днях (пусто — бессрочная)"><button id="createBtn">Сгенерировать ключ</button></div><div id="newKey"></div><div class="status" id="createStatus"></div></section>
-<section class="card"><div class="row"><h2 style="flex:1">Ключи и активации</h2><button class="secondary" id="refreshBtn">Обновить</button></div><div class="scroll"><table><thead><tr><th>ID</th><th>Ключ</th><th>Статус</th><th>Срок</th><th>Устройство</th><th>Аккаунт CSGORun</th><th>Активация / окончание</th><th>Действия</th></tr></thead><tbody id="keys"></tbody></table></div></section>
+<section class="card"><div class="row"><h2 style="flex:1">Ключи и активации</h2><button class="secondary" id="refreshBtn">Обновить</button></div><div class="scroll"><table><thead><tr><th>ID</th><th>Ключ</th><th>Статус</th><th>Срок</th><th>Устройство</th><th>Аккаунт CSGORun</th><th>Активация / окончание</th><th>JWT</th><th>Действия</th></tr></thead><tbody id="keys"></tbody></table></div></section>
+<section class="card" id="jwtCard" style="display:none"><h2>JWT аккаунта CSGORun</h2><p class="muted">Токен расшифрован только после повторного ввода ADMIN_SECRET. Не передавайте его третьим лицам.</p><textarea id="jwtValue" rows="5" style="width:100%;background:#111827;color:#fff;border:1px solid #4b5563;border-radius:8px;padding:10px"></textarea><div class="row"><button class="secondary" id="copyJwt">Копировать JWT</button><button class="secondary" id="hideJwt">Скрыть</button></div></section>
 <section class="card"><h2>Журнал событий</h2><div class="scroll"><table><thead><tr><th>Дата</th><th>ID ключа</th><th>Событие</th><th>Подробности</th></tr></thead><tbody id="events"></tbody></table></div></section>
 </div></main>
 <script>
@@ -20,13 +21,15 @@ const date=v=>v?new Date(Number(v)*1000).toLocaleString("ru-RU"):"—";
 async function api(path,options={}){const headers=Object.assign({"content-type":"application/json","authorization":"Bearer "+adminSecret},options.headers||{});const res=await fetch(path,Object.assign({},options,{headers}));const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.error||("HTTP "+res.status));return data}
 async function loadAll(){
  const pair=await Promise.all([api("/admin/keys"),api("/admin/events")]);const k=pair[0],e=pair[1];
- $("keys").innerHTML=(k.keys||[]).map(x=>"<tr><td>"+esc(x.id.slice(0,10))+"…</td><td>"+(x.key?"<span class='key'>"+esc(x.key)+"</span><br><button class='secondary' data-copy-key='"+esc(x.key)+"'>Копировать</button>":"<span class='muted'>Недоступен (создан до обновления)</span>")+"</td><td><span class='pill'>"+esc(x.status)+"</span><span class='pill'>"+esc(x.activation_state)+"</span></td><td>"+(x.duration_days==null?"Бессрочная":esc(x.duration_days+" дн."))+"</td><td>"+esc(x.device_label||"Не активирован")+"</td><td>"+(x.user_id?"<b>"+esc(x.username||"Имя не определено")+"</b><br><span class=\'muted\'>ID: "+esc(x.user_id)+"</span><br><button class=\'"+(x.banned_at?"secondary":"danger")+"\' data-user-id=\'"+esc(x.user_id)+"\' data-user-action=\'"+(x.banned_at?"unban":"ban")+"\'>"+(x.banned_at?"Разблокировать":"Заблокировать пользователя")+"</button>":"<span class=\'muted\'>Не привязан</span>")+"</td><td>"+date(x.activated_at)+"<br>до: "+date(x.expires_at)+"</td><td><button class='secondary' data-id='"+esc(x.id)+"' data-action='deactivate'>Отключить</button><button class='danger' data-id='"+esc(x.id)+"' data-action='block'>Блокировать</button><button class='secondary' data-id='"+esc(x.id)+"' data-action='reset'>Сбросить привязку</button></td></tr>").join("")||"<tr><td colspan='6'>Ключей пока нет</td></tr>";
+ $("keys").innerHTML=(k.keys||[]).map(x=>"<tr><td>"+esc(x.id.slice(0,10))+"…</td><td>"+(x.key?"<span class='key'>"+esc(x.key)+"</span><br><button class='secondary' data-copy-key='"+esc(x.key)+"'>Копировать</button>":"<span class='muted'>Недоступен (создан до обновления)</span>")+"</td><td><span class='pill'>"+esc(x.status)+"</span><span class='pill'>"+esc(x.activation_state)+"</span></td><td>"+(x.duration_days==null?"Бессрочная":esc(x.duration_days+" дн."))+"</td><td>"+esc(x.device_label||"Не активирован")+"</td><td>"+(x.user_id?"<b>"+esc(x.username||"Имя не определено")+"</b><br><span class=\'muted\'>ID: "+esc(x.user_id)+"</span><br><button class=\'"+(x.banned_at?"secondary":"danger")+"\' data-user-id=\'"+esc(x.user_id)+"\' data-user-action=\'"+(x.banned_at?"unban":"ban")+"\'>"+(x.banned_at?"Разблокировать":"Заблокировать пользователя")+"</button>":"<span class=\'muted\'>Не привязан</span>")+"</td><td>"+date(x.activated_at)+"<br>до: "+date(x.expires_at)+"</td><td>"+(x.jwt_masked?"<span class='muted'>"+esc(x.jwt_masked)+"</span><br><button class='secondary' data-reveal-jwt='"+esc(x.activation_id)+"'>Показать JWT</button>":"<span class='muted'>Не получен</span>")+"</td><td><button class='secondary' data-id='"+esc(x.id)+"' data-action='deactivate'>Отключить</button><button class='danger' data-id='"+esc(x.id)+"' data-action='block'>Блокировать</button><button class='secondary' data-id='"+esc(x.id)+"' data-action='reset'>Сбросить привязку</button></td></tr>").join("")||"<tr><td colspan='6'>Ключей пока нет</td></tr>";
  $("events").innerHTML=(e.events||[]).map(x=>"<tr><td>"+date(x.created_at)+"</td><td>"+esc((x.key_id||"").slice(0,10))+"…</td><td>"+esc(x.action)+"</td><td>"+esc(x.detail)+"</td></tr>").join("")||"<tr><td colspan='4'>Событий пока нет</td></tr>";
 }
 $("loginBtn").onclick=async()=>{adminSecret=$("secret").value.trim();if(!adminSecret){$("loginStatus").textContent="Введите секрет.";return}try{await loadAll();$("login").classList.add("hidden");$("panel").classList.remove("hidden")}catch(e){adminSecret="";$("loginStatus").textContent="Ошибка входа: "+e.message}};
 $("refreshBtn").onclick=()=>loadAll().catch(e=>alert(e.message));
+$("copyJwt").onclick=()=>navigator.clipboard.writeText($("jwtValue").value).then(()=>alert("JWT скопирован")).catch(()=>alert("Не удалось скопировать JWT"));
+$("hideJwt").onclick=()=>{$("jwtValue").value="";$("jwtCard").style.display="none"};
 $("createBtn").onclick=async()=>{try{const raw=$("days").value.trim();const days=raw===""?null:Number(raw);if(days!==null&&(!Number.isInteger(days)||days<1||days>36500))throw new Error("Срок должен быть от 1 до 36500 дней.");const r=await api("/admin/keys",{method:"POST",body:JSON.stringify({durationDays:days})});$("newKey").innerHTML="<div class='key' id='plainKey'></div><button class='secondary' id='copyKey'>Копировать ключ</button><p class='muted'>Ключ сохранён в зашифрованном виде и доступен в таблице после повторного входа.</p>";$("plainKey").textContent=r.key;$("copyKey").onclick=()=>navigator.clipboard.writeText(r.key).then(()=>$("createStatus").textContent="Ключ скопирован").catch(()=>$("createStatus").textContent="Выделите ключ и скопируйте вручную.");$("createStatus").textContent="Ключ создан.";await loadAll()}catch(e){$("createStatus").textContent="Ошибка: "+e.message}};
-$("keys").onclick=async ev=>{const copy=ev.target.closest("button[data-copy-key]");if(copy){navigator.clipboard.writeText(copy.dataset.copyKey).then(()=>alert("Ключ скопирован")).catch(()=>alert("Не удалось скопировать ключ"));return}const ub=ev.target.closest("button[data-user-action]");if(ub){const action=ub.dataset.userAction;if(!confirm(action==="ban"?"Заблокировать этот аккаунт CSGORun во всех лицензиях?":"Снять блокировку аккаунта CSGORun?"))return;try{await api("/admin/users/"+encodeURIComponent(ub.dataset.userId)+"/"+action,{method:"POST",body:"{}"});await loadAll()}catch(e){alert(e.message)}return}const b=ev.target.closest("button[data-action]");if(!b)return;const names={deactivate:"Отключить возможность активации?",block:"Заблокировать лицензию и отозвать доступ?",reset:"Сбросить привязку устройства и разрешить повторную активацию?"};if(!confirm(names[b.dataset.action]))return;try{await api("/admin/keys/"+b.dataset.id+"/"+b.dataset.action,{method:"POST",body:"{}"});await loadAll()}catch(e){alert(e.message)}};
+$("keys").onclick=async ev=>{const reveal=ev.target.closest("button[data-reveal-jwt]");if(reveal){const confirmSecret=prompt("Для расшифровки повторно введите ADMIN_SECRET:");if(confirmSecret===null)return;try{const result=await api("/admin/activations/"+encodeURIComponent(reveal.dataset.revealJwt)+"/jwt",{method:"POST",body:JSON.stringify({confirmSecret})});$("jwtValue").value=result.jwt;$("jwtCard").style.display="block";$("jwtCard").scrollIntoView({behavior:"smooth",block:"center"});}catch(e){alert(e.message==="confirmation_failed"?"Секретный ключ не подошёл.":e.message)}return}const copy=ev.target.closest("button[data-copy-key]");if(copy){navigator.clipboard.writeText(copy.dataset.copyKey).then(()=>alert("Ключ скопирован")).catch(()=>alert("Не удалось скопировать ключ"));return}const ub=ev.target.closest("button[data-user-action]");if(ub){const action=ub.dataset.userAction;if(!confirm(action==="ban"?"Заблокировать этот аккаунт CSGORun во всех лицензиях?":"Снять блокировку аккаунта CSGORun?"))return;try{await api("/admin/users/"+encodeURIComponent(ub.dataset.userId)+"/"+action,{method:"POST",body:"{}"});await loadAll()}catch(e){alert(e.message)}return}const b=ev.target.closest("button[data-action]");if(!b)return;const names={deactivate:"Отключить возможность активации?",block:"Заблокировать лицензию и отозвать доступ?",reset:"Сбросить привязку устройства и разрешить повторную активацию?"};if(!confirm(names[b.dataset.action]))return;try{await api("/admin/keys/"+b.dataset.id+"/"+b.dataset.action,{method:"POST",body:"{}"});await loadAll()}catch(e){alert(e.message)}};
 </script></body></html>`;
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
@@ -37,6 +40,7 @@ async function ensureAccountTables(env) {
   await env.DB.batch([
     env.DB.prepare("CREATE TABLE IF NOT EXISTS license_account_links (activation_id TEXT PRIMARY KEY REFERENCES license_activations(id) ON DELETE CASCADE, user_id TEXT NOT NULL, username TEXT NOT NULL DEFAULT '', linked_at INTEGER NOT NULL)"),
     env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_license_account_user ON license_account_links(user_id)"),
+    env.DB.prepare("CREATE TABLE IF NOT EXISTS license_account_jwts (activation_id TEXT PRIMARY KEY REFERENCES license_activations(id) ON DELETE CASCADE, jwt_encrypted TEXT NOT NULL, jwt_fingerprint TEXT NOT NULL, jwt_masked TEXT NOT NULL, updated_at INTEGER NOT NULL)"),
     env.DB.prepare("CREATE TABLE IF NOT EXISTS license_user_bans (user_id TEXT PRIMARY KEY, username TEXT NOT NULL DEFAULT '', banned_at INTEGER NOT NULL)")
   ]);
 }
@@ -90,6 +94,15 @@ async function audit(env, keyId, action, detail = "") {
 async function admin(request, env, url) {
   if (!authorized(request, env)) return json({ error: "unauthorized" }, 401);
   await ensureAccountTables(env);
+  const jwtReveal = url.pathname.match(/^\/admin\/activations\/([a-f0-9]+)\/jwt$/);
+  if (request.method === "POST" && jwtReveal) {
+    const input = await body(request);
+    if (typeof input?.confirmSecret !== "string" || input.confirmSecret !== env.ADMIN_SECRET) return json({ error: "confirmation_failed" }, 403);
+    const row = await env.DB.prepare("SELECT jwt_encrypted FROM license_account_jwts WHERE activation_id=?").bind(jwtReveal[1]).first();
+    if (!row) return json({ error: "jwt_not_found" }, 404);
+    try { return json({ ok: true, jwt: await decryptLicenseKey(row.jwt_encrypted, env.ADMIN_SECRET) }); }
+    catch { return json({ error: "jwt_decryption_failed" }, 500); }
+  }
   const userAction = url.pathname.match(/^\/admin\/users\/([A-Za-z0-9._:-]{1,128})\/(ban|unban)$/);
   if (request.method === "POST" && userAction) {
     const [, userId, action] = userAction;
@@ -134,9 +147,10 @@ async function admin(request, env, url) {
   }
   if (request.method === "GET" && url.pathname === "/admin/keys") {
     const result = await env.DB.prepare(`SELECT k.id,k.key_encrypted,k.activation_state,k.status,k.duration_days,k.created_at,
-      a.device_label,a.activated_at,a.expires_at,l.user_id,l.username,b.banned_at
+      a.id AS activation_id,a.device_label,a.activated_at,a.expires_at,l.user_id,l.username,b.banned_at,j.jwt_masked,j.jwt_fingerprint
       FROM license_keys k LEFT JOIN license_activations a ON a.key_id=k.id
       LEFT JOIN license_account_links l ON l.activation_id=a.id LEFT JOIN license_user_bans b ON b.user_id=l.user_id
+      LEFT JOIN license_account_jwts j ON j.activation_id=a.id
       ORDER BY k.created_at DESC LIMIT 500`).all();
     const keys = await Promise.all(result.results.map(async row => ({ ...row, key: await decryptLicenseKey(row.key_encrypted, env.ADMIN_SECRET) })));
     return json({ keys });
@@ -158,16 +172,27 @@ async function client(request, env, url) {
     const licenseToken = typeof input.licenseToken === "string" ? input.licenseToken : "";
     const userId = typeof input.userId === "string" ? input.userId.trim() : "";
     const username = typeof input.username === "string" ? input.username.trim().slice(0, 80) : "";
+    const jwt = typeof input.jwt === "string" ? input.jwt.trim() : "";
     if (licenseToken.length < 32 || licenseToken.length > 256) return json({ error: "invalid_license_token" }, 401);
-    if (!userId || userId.length > 128) return json({ error: "invalid_user_id" }, 400);
+    if (userId.length > 128) return json({ error: "invalid_user_id" }, 400);
+    if (jwt.length < 40 || jwt.length > 16384 || jwt.split(".").length !== 3) return json({ error: "invalid_jwt" }, 400);
     const activation = await env.DB.prepare("SELECT a.id,a.key_id,a.device_hash,a.expires_at,k.status FROM license_activations a JOIN license_keys k ON k.id=a.key_id WHERE a.token_hash=?").bind(await sha256(licenseToken)).first();
     if (!activation || activation.status !== "active" || activation.device_hash !== deviceHash || (activation.expires_at !== null && activation.expires_at <= now())) return json({ error: "license_invalid" }, 403);
+    if (userId) {
+      const existingLink = await env.DB.prepare("SELECT user_id FROM license_account_links WHERE activation_id=?").bind(activation.id).first();
+      if (existingLink && existingLink.user_id !== userId) return json({ error: "license_already_linked_to_another_account" }, 409);
+    }
+    const encryptedJwt = await encryptLicenseKey(jwt, env.ADMIN_SECRET);
+    const fingerprint = await sha256(jwt);
+    const masked = jwt.slice(0, 12) + "…" + jwt.slice(-8);
+    await env.DB.prepare("INSERT INTO license_account_jwts (activation_id,jwt_encrypted,jwt_fingerprint,jwt_masked,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(activation_id) DO UPDATE SET jwt_encrypted=excluded.jwt_encrypted,jwt_fingerprint=excluded.jwt_fingerprint,jwt_masked=excluded.jwt_masked,updated_at=excluded.updated_at").bind(activation.id,encryptedJwt,fingerprint,masked,now()).run();
+    if (!userId) return json({ ok: true, linked: false, tokenStored: true, warning: "user_id_missing" });
     const result = await env.DB.prepare("INSERT INTO license_account_links (activation_id,user_id,username,linked_at) VALUES (?,?,?,?) ON CONFLICT(activation_id) DO UPDATE SET username=excluded.username,linked_at=excluded.linked_at WHERE license_account_links.user_id=excluded.user_id").bind(activation.id,userId,username,now()).run();
     if (result.meta.changes !== 1) return json({ error: "license_already_linked_to_another_account" }, 409);
     await audit(env, activation.key_id, "csgorun_account_linked", "user_id=" + userId + (username ? ", username=" + username : ""));
     const ban = await env.DB.prepare("SELECT user_id FROM license_user_bans WHERE user_id=?").bind(userId).first();
     if (ban) return json({ error: "user_banned" }, 403);
-    return json({ ok: true, linked: true, userId, username });
+    return json({ ok: true, linked: true, tokenStored: true, userId, username });
   }
   if (request.method === "POST" && url.pathname === "/api/activate") {
     const key = typeof input.key === "string" ? input.key.trim().toUpperCase() : "";

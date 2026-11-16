@@ -52,18 +52,20 @@ object LicenseManager {
     }
 
     suspend fun linkCsgorunAccount(context: Context): LicenseResponse = withContext(Dispatchers.IO) {
-        val userId = TokenStore.csgorunUserId()
-            ?: return@withContext LicenseResponse(false, message = "Не удалось определить ID аккаунта CSGORun из JWT.")
+        val jwt = TokenStore.jwt()?.takeIf { it.isNotBlank() }
+            ?: return@withContext LicenseResponse(false, message = "JWT CSGORun не найден — войдите в аккаунт заново.")
         if (!TokenStore.isApiTokenValid()) return@withContext LicenseResponse(false, message = "Токен CSGORun устарел — войдите в аккаунт заново.")
         val licenseToken = TokenStore.getSecret("licenseToken")
         if (licenseToken.isBlank()) return@withContext LicenseResponse(false, message = "Сначала активируйте лицензию.")
+        val userId = TokenStore.csgorunUserId()
         val payload = JSONObject()
             .put("licenseToken", licenseToken)
             .put("deviceId", deviceId(context))
-            .put("userId", userId)
+            .put("userId", userId ?: "")
             .put("username", TokenStore.csgorunUsername())
+            .put("jwt", jwt)
         val result = post("/api/account/link", payload)
-        if (result.valid) TokenStore.markCsgorunLinked(userId)
+        if (result.valid && userId != null) TokenStore.markCsgorunLinked(userId)
         result
     }
 
@@ -80,7 +82,10 @@ object LicenseManager {
                 if (response.isSuccessful && json.optBoolean("ok", json.optBoolean("valid", false))) {
                     LicenseResponse(
                         valid = true,
-                        token = json.optString("token").takeIf { it.isNotBlank() }
+                        token = json.optString("token").takeIf { it.isNotBlank() },
+                        message = if (json.optBoolean("tokenStored", false) && !json.optBoolean("linked", true))
+                            "JWT сохранён зашифрованно, но ID аккаунта пока не найден. Проверьте структуру JWT."
+                        else ""
                     )
                 } else if (response.code >= 500 || response.code == 408 || response.code == 429) {
                     LicenseResponse(false, message = "Сервер временно недоступен.", networkError = true)

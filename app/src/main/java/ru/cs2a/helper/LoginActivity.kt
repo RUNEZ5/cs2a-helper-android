@@ -69,7 +69,7 @@ class LoginActivity : AppCompatActivity() {
                         Toast.makeText(this@LoginActivity, linked.message, Toast.LENGTH_LONG).show()
                         if (linked.message.contains("заблокирован", ignoreCase = true)) TokenStore.saveSecret("licenseToken", "")
                     } else {
-                        Toast.makeText(this@LoginActivity, "Аккаунт CSGORun привязан к лицензии ✅", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@LoginActivity, linked.message.ifBlank { "Аккаунт CSGORun привязан к лицензии ✅" }, Toast.LENGTH_LONG).show()
                     }
                 }
             }
@@ -95,7 +95,7 @@ class LoginActivity : AppCompatActivity() {
                                             Toast.makeText(this@LoginActivity, linked.message, Toast.LENGTH_LONG).show()
                                             if (linked.message.contains("заблокирован", ignoreCase = true)) TokenStore.saveSecret("licenseToken", "")
                                         } else {
-                                            Toast.makeText(this@LoginActivity, "Аккаунт CSGORun привязан к лицензии ✅", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(this@LoginActivity, linked.message.ifBlank { "Аккаунт CSGORun привязан к лицензии ✅" }, Toast.LENGTH_LONG).show()
                                         }
                                     }
                                 }
