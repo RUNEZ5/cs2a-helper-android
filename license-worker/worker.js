@@ -94,10 +94,13 @@ async function admin(request, env, url) {
   if (request.method === "POST" && userAction) {
     const [, userId, action] = userAction;
     const linked = await env.DB.prepare("SELECT username FROM license_account_links WHERE user_id=? ORDER BY linked_at DESC LIMIT 1").bind(userId).first();
-    if (!linked && action === "unban") return json({ error: "user_not_found" }, 404);
     if (action === "ban") {
       await env.DB.prepare("INSERT INTO license_user_bans (user_id,username,banned_at) VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET username=excluded.username,banned_at=excluded.banned_at").bind(userId, linked?.username || "", now()).run();
-    } else { await env.DB.prepare("DELETE FROM license_user_bans WHERE user_id=?").bind(userId).run(); }
+    } else {
+      const existingBan = await env.DB.prepare("SELECT user_id FROM license_user_bans WHERE user_id=?").bind(userId).first();
+      if (!existingBan) return json({ error: "user_not_found" }, 404);
+      await env.DB.prepare("DELETE FROM license_user_bans WHERE user_id=?").bind(userId).run();
+    }
     const keyRow = await env.DB.prepare("SELECT a.key_id FROM license_account_links l JOIN license_activations a ON a.id=l.activation_id WHERE l.user_id=? LIMIT 1").bind(userId).first();
     await audit(env, keyRow?.key_id || null, action === "ban" ? "csgorun_user_banned" : "csgorun_user_unbanned", "user_id=" + userId);
     return json({ ok: true, action, userId });
