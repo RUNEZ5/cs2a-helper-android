@@ -45,6 +45,7 @@ class MainActivity : AppCompatActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var selectedPromoResultsCategory = "activated"
+    private var mainUiActive = false
     private val notifPermLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (!granted) Toast.makeText(this, "Без разрешения на уведомления не будет видно, что служба спама работает", Toast.LENGTH_LONG).show()
     }
@@ -82,6 +83,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val token = TokenStore.getSecret("licenseToken")
             if (token.isBlank()) {
+                stopLicensedServices()
                 showLicenseScreen("Для использования приложения необходим лицензионный ключ.")
                 return@launch
             }
@@ -99,8 +101,9 @@ class MainActivity : AppCompatActivity() {
                         TokenStore.saveSecret("licenseToken", "")
                         TokenStore.setString("licenseLastValidated", "")
                     }
+                    stopLicensedServices()
                     showLicenseScreen(
-                        if (result.networkError) "Не удалось связаться с сервером. Проверьте интернет и попробуйте снова." 
+                        if (result.networkError) "Не удалось связаться с сервером. Проверьте интернет и попробуйте снова."
                         else "Лицензия недействительна, истекла или была отозвана. Введите действующий ключ."
                     )
                 }
@@ -109,6 +112,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showLicenseScreen(message: String, loading: Boolean = false) {
+        mainUiActive = false
         val root = ScrollView(this)
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -180,11 +184,23 @@ class MainActivity : AppCompatActivity() {
         setContentView(root)
     }
 
+    private fun stopLicensedServices() {
+        TokenStore.setBool("rafflesAuto", false)
+        TokenStore.setBool("farmAuto", false)
+        TokenStore.setBool("cashbackAuto", false)
+        TokenStore.setBool("promoAuto", false)
+        stopService(Intent(this, SpamForegroundService::class.java))
+        stopService(Intent(this, CrashForegroundService::class.java))
+        stopService(Intent(this, PromoTelegramService::class.java))
+        stopService(Intent(this, ActivityStatusService::class.java))
+    }
+
     private fun scheduleLicenseRecheck() {
         handler.postDelayed({
             lifecycleScope.launch {
                 val token = TokenStore.getSecret("licenseToken")
                 if (token.isBlank()) {
+                    stopLicensedServices()
                     showLicenseScreen("Лицензия не найдена. Введите ключ.")
                     return@launch
                 }
@@ -202,6 +218,7 @@ class MainActivity : AppCompatActivity() {
                             TokenStore.saveSecret("licenseToken", "")
                             TokenStore.setString("licenseLastValidated", "")
                         }
+                        stopLicensedServices()
                         showLicenseScreen("Лицензия недействительна или отозвана. Обратитесь к @pashkanka.")
                     }
                 }
@@ -236,6 +253,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initializeMainUi() {
+        mainUiActive = true
         showTab("farm")
         findViewById<Button>(R.id.tabFarm).setOnClickListener { showTab("farm") }
         findViewById<Button>(R.id.tabRaffles).setOnClickListener { showTab("raffles") }
@@ -635,6 +653,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshLoop() {
+        if (!mainUiActive) return
         refreshStatus()
         refreshLogs()
         findViewById<TextView>(R.id.crashStatus).text = CrashState.status.value
