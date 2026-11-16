@@ -66,6 +66,8 @@ object LicenseManager {
                         valid = true,
                         token = json.optString("token").takeIf { it.isNotBlank() }
                     )
+                } else if (response.code >= 500 || response.code == 408 || response.code == 429) {
+                    LicenseResponse(false, message = "Сервер временно недоступен.", networkError = true)
                 } else {
                     val error = json.optString("error", "license_error")
                     LicenseResponse(false, message = when (error) {
