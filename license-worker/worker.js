@@ -16,7 +16,7 @@ function randomKey() {
   const parts = [0, 1, 2, 3].map(i => [...bytes.slice(i * 5, i * 5 + 5)].map(n => alphabet[n % alphabet.length]).join(""));
   return "CS2A-" + parts.join("-");
 }
-function authorized(request, env): boolean {
+function authorized(request, env) {
   const value = request.headers.get("authorization") || "";
   return value.startsWith("Bearer ") && value.slice(7) === env.ADMIN_SECRET && env.ADMIN_SECRET.length >= 32;
 }
