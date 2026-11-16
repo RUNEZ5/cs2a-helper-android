@@ -9,7 +9,7 @@ const ADMIN_HTML = String.raw`<!doctype html>
 <section class="card" id="login"><h2>Вход администратора</h2><div class="row"><input id="secret" type="password" autocomplete="off" placeholder="ADMIN_SECRET"><button id="loginBtn">Войти</button></div><div class="status" id="loginStatus"></div></section>
 <div id="panel" class="hidden">
 <section class="card"><h2>Создать лицензионный ключ</h2><div class="row"><input id="days" type="number" min="1" max="36500" placeholder="Срок в днях (пусто — бессрочная)"><button id="createBtn">Сгенерировать ключ</button></div><div id="newKey"></div><div class="status" id="createStatus"></div></section>
-<section class="card"><div class="row"><h2 style="flex:1">Ключи и активации</h2><button class="secondary" id="refreshBtn">Обновить</button></div><div class="scroll"><table><thead><tr><th>ID</th><th>Статус</th><th>Срок</th><th>Устройство</th><th>Активация / окончание</th><th>Действия</th></tr></thead><tbody id="keys"></tbody></table></div></section>
+<section class="card"><div class="row"><h2 style="flex:1">Ключи и активации</h2><button class="secondary" id="refreshBtn">Обновить</button></div><div class="scroll"><table><thead><tr><th>ID</th><th>Ключ</th><th>Статус</th><th>Срок</th><th>Устройство</th><th>Активация / окончание</th><th>Действия</th></tr></thead><tbody id="keys"></tbody></table></div></section>
 <section class="card"><h2>Журнал событий</h2><div class="scroll"><table><thead><tr><th>Дата</th><th>ID ключа</th><th>Событие</th><th>Подробности</th></tr></thead><tbody id="events"></tbody></table></div></section>
 </div></main>
 <script>
@@ -20,13 +20,13 @@ const date=v=>v?new Date(Number(v)*1000).toLocaleString("ru-RU"):"—";
 async function api(path,options={}){const headers=Object.assign({"content-type":"application/json","authorization":"Bearer "+adminSecret},options.headers||{});const res=await fetch(path,Object.assign({},options,{headers}));const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.error||("HTTP "+res.status));return data}
 async function loadAll(){
  const pair=await Promise.all([api("/admin/keys"),api("/admin/events")]);const k=pair[0],e=pair[1];
- $("keys").innerHTML=(k.keys||[]).map(x=>"<tr><td>"+esc(x.id.slice(0,10))+"…</td><td><span class='pill'>"+esc(x.status)+"</span><span class='pill'>"+esc(x.activation_state)+"</span></td><td>"+(x.duration_days==null?"Бессрочная":esc(x.duration_days+" дн."))+"</td><td>"+esc(x.device_label||"Не активирован")+"</td><td>"+date(x.activated_at)+"<br>до: "+date(x.expires_at)+"</td><td><button class='secondary' data-id='"+esc(x.id)+"' data-action='deactivate'>Отключить</button><button class='danger' data-id='"+esc(x.id)+"' data-action='block'>Блокировать</button><button class='secondary' data-id='"+esc(x.id)+"' data-action='reset'>Сбросить привязку</button></td></tr>").join("")||"<tr><td colspan='6'>Ключей пока нет</td></tr>";
+ $("keys").innerHTML=(k.keys||[]).map(x=>"<tr><td>"+esc(x.id.slice(0,10))+"…</td><td>"+(x.key?"<span class='key'>"+esc(x.key)+"</span><br><button class='secondary' data-copy-key='"+esc(x.key)+"'>Копировать</button>":"<span class='muted'>Недоступен (создан до обновления)</span>")+"</td><td><span class='pill'>"+esc(x.status)+"</span><span class='pill'>"+esc(x.activation_state)+"</span></td><td>"+(x.duration_days==null?"Бессрочная":esc(x.duration_days+" дн."))+"</td><td>"+esc(x.device_label||"Не активирован")+"</td><td>"+date(x.activated_at)+"<br>до: "+date(x.expires_at)+"</td><td><button class='secondary' data-id='"+esc(x.id)+"' data-action='deactivate'>Отключить</button><button class='danger' data-id='"+esc(x.id)+"' data-action='block'>Блокировать</button><button class='secondary' data-id='"+esc(x.id)+"' data-action='reset'>Сбросить привязку</button></td></tr>").join("")||"<tr><td colspan='6'>Ключей пока нет</td></tr>";
  $("events").innerHTML=(e.events||[]).map(x=>"<tr><td>"+date(x.created_at)+"</td><td>"+esc((x.key_id||"").slice(0,10))+"…</td><td>"+esc(x.action)+"</td><td>"+esc(x.detail)+"</td></tr>").join("")||"<tr><td colspan='4'>Событий пока нет</td></tr>";
 }
 $("loginBtn").onclick=async()=>{adminSecret=$("secret").value.trim();if(!adminSecret){$("loginStatus").textContent="Введите секрет.";return}try{await loadAll();$("login").classList.add("hidden");$("panel").classList.remove("hidden")}catch(e){adminSecret="";$("loginStatus").textContent="Ошибка входа: "+e.message}};
 $("refreshBtn").onclick=()=>loadAll().catch(e=>alert(e.message));
-$("createBtn").onclick=async()=>{try{const raw=$("days").value.trim();const days=raw===""?null:Number(raw);if(days!==null&&(!Number.isInteger(days)||days<1||days>36500))throw new Error("Срок должен быть от 1 до 36500 дней.");const r=await api("/admin/keys",{method:"POST",body:JSON.stringify({durationDays:days})});$("newKey").innerHTML="<div class='key' id='plainKey'></div><button class='secondary' id='copyKey'>Копировать ключ</button><p class='muted'>Скопируйте и сохраните ключ сейчас: повторно сервер его не покажет.</p>";$("plainKey").textContent=r.key;$("copyKey").onclick=()=>navigator.clipboard.writeText(r.key).then(()=>$("createStatus").textContent="Ключ скопирован").catch(()=>$("createStatus").textContent="Выделите ключ и скопируйте вручную.");$("createStatus").textContent="Ключ создан.";await loadAll()}catch(e){$("createStatus").textContent="Ошибка: "+e.message}};
-$("keys").onclick=async ev=>{const b=ev.target.closest("button[data-action]");if(!b)return;const names={deactivate:"Отключить возможность активации?",block:"Заблокировать лицензию и отозвать доступ?",reset:"Сбросить привязку устройства и разрешить повторную активацию?"};if(!confirm(names[b.dataset.action]))return;try{await api("/admin/keys/"+b.dataset.id+"/"+b.dataset.action,{method:"POST",body:"{}"});await loadAll()}catch(e){alert(e.message)}};
+$("createBtn").onclick=async()=>{try{const raw=$("days").value.trim();const days=raw===""?null:Number(raw);if(days!==null&&(!Number.isInteger(days)||days<1||days>36500))throw new Error("Срок должен быть от 1 до 36500 дней.");const r=await api("/admin/keys",{method:"POST",body:JSON.stringify({durationDays:days})});$("newKey").innerHTML="<div class='key' id='plainKey'></div><button class='secondary' id='copyKey'>Копировать ключ</button><p class='muted'>Ключ сохранён в зашифрованном виде и доступен в таблице после повторного входа.</p>";$("plainKey").textContent=r.key;$("copyKey").onclick=()=>navigator.clipboard.writeText(r.key).then(()=>$("createStatus").textContent="Ключ скопирован").catch(()=>$("createStatus").textContent="Выделите ключ и скопируйте вручную.");$("createStatus").textContent="Ключ создан.";await loadAll()}catch(e){$("createStatus").textContent="Ошибка: "+e.message}};
+$("keys").onclick=async ev=>{const copy=ev.target.closest("button[data-copy-key]");if(copy){navigator.clipboard.writeText(copy.dataset.copyKey).then(()=>alert("Ключ скопирован")).catch(()=>alert("Не удалось скопировать ключ"));return}const b=ev.target.closest("button[data-action]");if(!b)return;const names={deactivate:"Отключить возможность активации?",block:"Заблокировать лицензию и отозвать доступ?",reset:"Сбросить привязку устройства и разрешить повторную активацию?"};if(!confirm(names[b.dataset.action]))return;try{await api("/admin/keys/"+b.dataset.id+"/"+b.dataset.action,{method:"POST",body:"{}"});await loadAll()}catch(e){alert(e.message)}};
 </script></body></html>`;
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
@@ -40,6 +40,28 @@ async function sha256(value) {
 function randomHex(bytes = 32) {
   const data = crypto.getRandomValues(new Uint8Array(bytes));
   return [...data].map(x => x.toString(16).padStart(2, "0")).join("");
+}
+async function encryptLicenseKey(value, secret) {
+  const raw = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
+  const key = await crypto.subtle.importKey("raw", raw, { name: "AES-GCM" }, false, ["encrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(value)));
+  const hex = bytes => Array.from(bytes, x => x.toString(16).padStart(2, "0")).join("");
+  return hex(iv) + ":" + hex(encrypted);
+}
+async function decryptLicenseKey(value, secret) {
+  if (!value) return null;
+  const parts = value.split(":");
+  if (parts.length !== 2) return null;
+  const bytes = hex => {
+    const out = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+    return out;
+  };
+  const raw = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
+  const key = await crypto.subtle.importKey("raw", raw, { name: "AES-GCM" }, false, ["decrypt"]);
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: bytes(parts[0]) }, key, bytes(parts[1]));
+  return new TextDecoder().decode(decrypted);
 }
 function randomKey() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -65,8 +87,9 @@ async function admin(request, env, url) {
     const days = input?.durationDays;
     if (!(days === null || (Number.isInteger(days) && days >= 1 && days <= 36500))) return json({ error: "durationDays must be null or 1..36500" }, 400);
     const key = randomKey(), id = randomHex(16), created = now();
-    await env.DB.prepare("INSERT INTO license_keys (id,key_hash,activation_state,status,duration_days,created_at) VALUES (?,?, 'available','active',?,?)")
-      .bind(id, await sha256(key), days, created).run();
+    const encryptedKey = await encryptLicenseKey(key, env.ADMIN_SECRET);
+    await env.DB.prepare("INSERT INTO license_keys (id,key_hash,key_encrypted,activation_state,status,duration_days,created_at) VALUES (?,?,?, 'available','active',?,?)")
+      .bind(id, await sha256(key), encryptedKey, days, created).run();
     await audit(env, id, "created", days === null ? "perpetual" : days + " days");
     return json({ id, key, durationDays: days, createdAt: created }, 201);
   }
@@ -87,11 +110,12 @@ async function admin(request, env, url) {
     return json({ ok: true, action });
   }
   if (request.method === "GET" && url.pathname === "/admin/keys") {
-    const result = await env.DB.prepare(`SELECT k.id,k.activation_state,k.status,k.duration_days,k.created_at,
+    const result = await env.DB.prepare(`SELECT k.id,k.key_encrypted,k.activation_state,k.status,k.duration_days,k.created_at,
       a.device_label,a.activated_at,a.expires_at
       FROM license_keys k LEFT JOIN license_activations a ON a.key_id=k.id
       ORDER BY k.created_at DESC LIMIT 500`).all();
-    return json({ keys: result.results });
+    const keys = await Promise.all(result.results.map(async row => ({ ...row, key: await decryptLicenseKey(row.key_encrypted, env.ADMIN_SECRET) })));
+    return json({ keys });
   }
   if (request.method === "GET" && url.pathname === "/admin/events") {
     const result = await env.DB.prepare("SELECT key_id,action,detail,created_at FROM license_events ORDER BY created_at DESC LIMIT 500").all();
