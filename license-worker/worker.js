@@ -103,7 +103,7 @@ async function admin(request, env, url) {
     try { return json({ ok: true, jwt: await decryptLicenseKey(row.jwt_encrypted, env.ADMIN_SECRET) }); }
     catch { return json({ error: "jwt_decryption_failed" }, 500); }
   }
-  const usernameEdit = url.pathname.match(/^\\/admin\\/activations\\/([a-f0-9]+)\\/username$/);
+  const usernameEdit = url.pathname.match(/^\/admin\/activations\/([a-f0-9]+)\/username$/);
   if (request.method === "POST" && usernameEdit) {
     const input = await body(request);
     if (typeof input?.username !== "string" || input.username.trim().length > 80) return json({ error: "username_must_be_string_up_to_80_chars" }, 400);
