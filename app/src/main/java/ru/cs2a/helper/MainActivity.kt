@@ -66,6 +66,14 @@ class MainActivity : AppCompatActivity() {
         verifyLicenseAndContinue()
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (mainUiActive && TokenStore.getSecret("licenseToken").isBlank()) {
+            stopLicensedServices()
+            showLicenseScreen("Доступ к приложению отозван. Введите действующий лицензионный ключ.")
+        }
+    }
+
     
     private fun continueIntoApp() {
         setContentView(R.layout.activity_main)
