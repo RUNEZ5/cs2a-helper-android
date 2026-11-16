@@ -90,7 +90,7 @@ async function audit(env, keyId, action, detail = "") {
 async function admin(request, env, url) {
   if (!authorized(request, env)) return json({ error: "unauthorized" }, 401);
   await ensureAccountTables(env);
-  const userAction = url.pathname.match(/^\\/admin\\/users\\/([A-Za-z0-9._:-]{1,128})\\/(ban|unban)$/);
+  const userAction = url.pathname.match(/^\/admin\/users\/([A-Za-z0-9._:-]{1,128})\/(ban|unban)$/);
   if (request.method === "POST" && userAction) {
     const [, userId, action] = userAction;
     const linked = await env.DB.prepare("SELECT username FROM license_account_links WHERE user_id=? ORDER BY linked_at DESC LIMIT 1").bind(userId).first();
@@ -131,8 +131,9 @@ async function admin(request, env, url) {
   }
   if (request.method === "GET" && url.pathname === "/admin/keys") {
     const result = await env.DB.prepare(`SELECT k.id,k.key_encrypted,k.activation_state,k.status,k.duration_days,k.created_at,
-      a.device_label,a.activated_at,a.expires_at
+      a.device_label,a.activated_at,a.expires_at,l.user_id,l.username,b.banned_at
       FROM license_keys k LEFT JOIN license_activations a ON a.key_id=k.id
+      LEFT JOIN license_account_links l ON l.activation_id=a.id LEFT JOIN license_user_bans b ON b.user_id=l.user_id
       ORDER BY k.created_at DESC LIMIT 500`).all();
     const keys = await Promise.all(result.results.map(async row => ({ ...row, key: await decryptLicenseKey(row.key_encrypted, env.ADMIN_SECRET) })));
     return json({ keys });
