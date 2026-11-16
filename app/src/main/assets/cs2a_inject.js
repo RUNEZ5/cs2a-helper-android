@@ -34,7 +34,10 @@
     var exp = typeof pl.exp === 'number' ? pl.exp * 1000 : 0;
     if (!isApi(pl)) return;
     if (!A.apiToken || exp >= A.apiToken.exp) A.apiToken = { value: value, exp: exp, src: src };
-    emit('jwt', { token: value, exp: exp, src: src });
+    var user = pl.user && typeof pl.user === 'object' ? pl.user : (pl.profile && typeof pl.profile === 'object' ? pl.profile : {});
+    var userId = pl.id != null ? String(pl.id) : '';
+    var username = pl.username || pl.userName || pl.login || pl.nickname || pl.preferred_username || pl.displayName || pl.name || user.username || user.userName || user.login || user.nickname || user.name || '';
+    emit('jwt', { token: value, exp: exp, src: src, userId: userId, username: String(username || '').slice(0, 80) });
   };
   A.scanTokens = function (s, src) {
     if (typeof s !== 'string' || s.length < 30) return;
