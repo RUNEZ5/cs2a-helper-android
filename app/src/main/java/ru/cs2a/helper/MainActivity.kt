@@ -12,7 +12,9 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
-import android.view.View\nimport android.view.Gravity\nimport android.widget.ScrollView
+import android.view.View
+import android.view.Gravity
+import android.widget.ScrollView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
