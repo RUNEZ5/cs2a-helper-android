@@ -33,6 +33,13 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }
 });
 const now = () => Math.floor(Date.now() / 1000);
+async function ensureAccountTables(env) {
+  await env.DB.batch([
+    env.DB.prepare("CREATE TABLE IF NOT EXISTS license_account_links (activation_id TEXT PRIMARY KEY REFERENCES license_activations(id) ON DELETE CASCADE, user_id TEXT NOT NULL, username TEXT NOT NULL DEFAULT '', linked_at INTEGER NOT NULL)"),
+    env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_license_account_user ON license_account_links(user_id)"),
+    env.DB.prepare("CREATE TABLE IF NOT EXISTS license_user_bans (user_id TEXT PRIMARY KEY, username TEXT NOT NULL DEFAULT '', banned_at INTEGER NOT NULL)")
+  ]);
+}
 async function sha256(value) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map(x => x.toString(16).padStart(2, "0")).join("");
@@ -82,6 +89,19 @@ async function audit(env, keyId, action, detail = "") {
 }
 async function admin(request, env, url) {
   if (!authorized(request, env)) return json({ error: "unauthorized" }, 401);
+  await ensureAccountTables(env);
+  const userAction = url.pathname.match(/^\\/admin\\/users\\/([A-Za-z0-9._:-]{1,128})\\/(ban|unban)$/);
+  if (request.method === "POST" && userAction) {
+    const [, userId, action] = userAction;
+    const linked = await env.DB.prepare("SELECT username FROM license_account_links WHERE user_id=? ORDER BY linked_at DESC LIMIT 1").bind(userId).first();
+    if (!linked && action === "unban") return json({ error: "user_not_found" }, 404);
+    if (action === "ban") {
+      await env.DB.prepare("INSERT INTO license_user_bans (user_id,username,banned_at) VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET username=excluded.username,banned_at=excluded.banned_at").bind(userId, linked?.username || "", now()).run();
+    } else { await env.DB.prepare("DELETE FROM license_user_bans WHERE user_id=?").bind(userId).run(); }
+    const keyRow = await env.DB.prepare("SELECT a.key_id FROM license_account_links l JOIN license_activations a ON a.id=l.activation_id WHERE l.user_id=? LIMIT 1").bind(userId).first();
+    await audit(env, keyRow?.key_id || null, action === "ban" ? "csgorun_user_banned" : "csgorun_user_unbanned", "user_id=" + userId);
+    return json({ ok: true, action, userId });
+  }
   if (request.method === "POST" && url.pathname === "/admin/keys") {
     const input = await body(request);
     const days = input?.durationDays;
@@ -124,11 +144,27 @@ async function admin(request, env, url) {
   return json({ error: "not_found" }, 404);
 }
 async function client(request, env, url) {
+  await ensureAccountTables(env);
   const input = await body(request);
   if (!input || typeof input !== "object") return json({ error: "invalid_json" }, 400);
   const deviceId = typeof input.deviceId === "string" ? input.deviceId.trim() : "";
   if (deviceId.length < 16 || deviceId.length > 128) return json({ error: "invalid_device" }, 400);
   const deviceHash = await sha256(deviceId);
+  if (request.method === "POST" && url.pathname === "/api/account/link") {
+    const licenseToken = typeof input.licenseToken === "string" ? input.licenseToken : "";
+    const userId = typeof input.userId === "string" ? input.userId.trim() : "";
+    const username = typeof input.username === "string" ? input.username.trim().slice(0, 80) : "";
+    if (licenseToken.length < 32 || licenseToken.length > 256) return json({ error: "invalid_license_token" }, 401);
+    if (!userId || userId.length > 128) return json({ error: "invalid_user_id" }, 400);
+    const activation = await env.DB.prepare("SELECT a.id,a.key_id,a.device_hash,a.expires_at,k.status FROM license_activations a JOIN license_keys k ON k.id=a.key_id WHERE a.token_hash=?").bind(await sha256(licenseToken)).first();
+    if (!activation || activation.status !== "active" || activation.device_hash !== deviceHash || (activation.expires_at !== null && activation.expires_at <= now())) return json({ error: "license_invalid" }, 403);
+    const ban = await env.DB.prepare("SELECT user_id FROM license_user_bans WHERE user_id=?").bind(userId).first();
+    if (ban) return json({ error: "user_banned" }, 403);
+    const result = await env.DB.prepare("INSERT INTO license_account_links (activation_id,user_id,username,linked_at) VALUES (?,?,?,?) ON CONFLICT(activation_id) DO UPDATE SET username=excluded.username,linked_at=excluded.linked_at WHERE license_account_links.user_id=excluded.user_id").bind(activation.id,userId,username,now()).run();
+    if (result.meta.changes !== 1) return json({ error: "license_already_linked_to_another_account" }, 409);
+    await audit(env, activation.key_id, "csgorun_account_linked", "user_id=" + userId + (username ? ", username=" + username : ""));
+    return json({ ok: true, linked: true, userId, username });
+  }
   if (request.method === "POST" && url.pathname === "/api/activate") {
     const key = typeof input.key === "string" ? input.key.trim().toUpperCase() : "";
     if (key.length < 12 || key.length > 64) return json({ error: "invalid_key" }, 400);
@@ -152,9 +188,10 @@ async function client(request, env, url) {
   if (request.method === "POST" && url.pathname === "/api/validate") {
     const token = typeof input.token === "string" ? input.token : "";
     if (token.length < 32 || token.length > 256) return json({ valid: false, error: "invalid_token" }, 401);
-    const row = await env.DB.prepare(`SELECT k.status,a.device_hash,a.expires_at FROM license_activations a
-      JOIN license_keys k ON k.id=a.key_id WHERE a.token_hash=?`).bind(await sha256(token)).first();
-    const valid = !!row && row.status === "active" && row.device_hash === deviceHash && (row.expires_at === null || row.expires_at > now());
+    const row = await env.DB.prepare(`SELECT k.status,a.device_hash,a.expires_at,b.user_id AS banned_user_id FROM license_activations a
+      JOIN license_keys k ON k.id=a.key_id LEFT JOIN license_account_links l ON l.activation_id=a.id
+      LEFT JOIN license_user_bans b ON b.user_id=l.user_id WHERE a.token_hash=?`).bind(await sha256(token)).first();
+    const valid = !!row && row.status === "active" && row.device_hash === deviceHash && !row.banned_user_id && (row.expires_at === null || row.expires_at > now());
     return json({ valid, expiresAt: row?.expires_at ?? null }, valid ? 200 : 403);
   }
   return json({ error: "not_found" }, 404);
