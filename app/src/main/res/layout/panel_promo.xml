@@ -24,8 +24,15 @@
     <TextView style="@style/CardLabel" android:text="Зеркало для активации (выбирается вручную)" />
     <Spinner android:id="@+id/promoMirror" android:layout_width="match_parent" android:layout_height="48dp" />
 
-    <TextView style="@style/CardLabel" android:text="Первичная проверка истории" />
-    <Spinner android:id="@+id/promoScanPeriod" android:layout_width="match_parent" android:layout_height="48dp" />
+    <TextView style="@style/CardLabel" android:text="Период проверки истории (дней)" />
+    <EditText android:id="@+id/promoScanDays" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:inputType="number" android:singleLine="true" android:hint="Например, 365"
+        android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
+
+    <TextView style="@style/CardLabel" android:text="Интервал между активациями (секунд)" />
+    <EditText android:id="@+id/promoActivationInterval" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:inputType="number" android:singleLine="true" android:hint="Например, 1"
+        android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
 
     <Button android:id="@+id/promoStartBtn" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:text="Сохранить настройки и подключить Telegram" android:layout_marginTop="10dp" />
