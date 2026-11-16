@@ -33,11 +33,13 @@ object TokenStore {
         val user = payload?.optJSONObject("user") ?: payload?.optJSONObject("profile")
         val userId = claim(payload, user, arrayOf("id", "userId", "user_id", "sub"))
         val username = claim(payload, user, arrayOf("username", "userName", "login", "nickname", "preferred_username", "displayName", "name"))
-        secure.edit().putString("jwt", token)
+        val editor = secure.edit()
+            .putString("jwt", token)
             .putLong("jwtExp", (payload?.optDouble("exp", 0.0)?.times(1000))?.toLong() ?: 0L)
-            .apply()
-        if (!userId.isNullOrBlank()) secure.edit().putString("csgorunUserId", userId).apply()
-        if (username != null) secure.edit().putString("csgorunUsername", username.take(80)).apply()
+            .putString("csgorunUserId", userId)
+            .putString("csgorunUsername", username?.take(80) ?: "")
+        if (userId != csgorunUserId()) editor.remove("csgorunLinkedUserId")
+        editor.apply()
     }
 
     private fun claim(root: JSONObject?, nested: JSONObject?, names: Array<String>): String? {
