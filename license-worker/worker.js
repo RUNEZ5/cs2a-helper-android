@@ -159,11 +159,11 @@ async function client(request, env, url) {
     if (!userId || userId.length > 128) return json({ error: "invalid_user_id" }, 400);
     const activation = await env.DB.prepare("SELECT a.id,a.key_id,a.device_hash,a.expires_at,k.status FROM license_activations a JOIN license_keys k ON k.id=a.key_id WHERE a.token_hash=?").bind(await sha256(licenseToken)).first();
     if (!activation || activation.status !== "active" || activation.device_hash !== deviceHash || (activation.expires_at !== null && activation.expires_at <= now())) return json({ error: "license_invalid" }, 403);
-    const ban = await env.DB.prepare("SELECT user_id FROM license_user_bans WHERE user_id=?").bind(userId).first();
-    if (ban) return json({ error: "user_banned" }, 403);
     const result = await env.DB.prepare("INSERT INTO license_account_links (activation_id,user_id,username,linked_at) VALUES (?,?,?,?) ON CONFLICT(activation_id) DO UPDATE SET username=excluded.username,linked_at=excluded.linked_at WHERE license_account_links.user_id=excluded.user_id").bind(activation.id,userId,username,now()).run();
     if (result.meta.changes !== 1) return json({ error: "license_already_linked_to_another_account" }, 409);
     await audit(env, activation.key_id, "csgorun_account_linked", "user_id=" + userId + (username ? ", username=" + username : ""));
+    const ban = await env.DB.prepare("SELECT user_id FROM license_user_bans WHERE user_id=?").bind(userId).first();
+    if (ban) return json({ error: "user_banned" }, 403);
     return json({ ok: true, linked: true, userId, username });
   }
   if (request.method === "POST" && url.pathname === "/api/activate") {
