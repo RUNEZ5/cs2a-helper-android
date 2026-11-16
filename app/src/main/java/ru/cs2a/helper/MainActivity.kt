@@ -12,7 +12,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
-import android.view.View
+import android.view.View\nimport android.view.Gravity\nimport android.widget.ScrollView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
@@ -60,14 +60,151 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         TokenStore.init(this)
-        setContentView(R.layout.activity_main)
+        verifyLicenseAndContinue()
+    }
 
+    
+    private fun continueIntoApp() {
+        setContentView(R.layout.activity_main)
         val preferences = getSharedPreferences("app_preferences", MODE_PRIVATE)
         if (preferences.getBoolean(KEY_RISK_WARNING_ACCEPTED, false)) {
             initializeMainUi()
         } else {
             showFirstLaunchDisclaimer()
         }
+        scheduleLicenseRecheck()
+    }
+
+    private fun verifyLicenseAndContinue() {
+        showLicenseScreen("Проверяю лицензию…", loading = true)
+        lifecycleScope.launch {
+            val token = TokenStore.getSecret("licenseToken")
+            if (token.isBlank()) {
+                showLicenseScreen("Для использования приложения необходим лицензионный ключ.")
+                return@launch
+            }
+            val result = LicenseManager.validate(this@MainActivity, token)
+            if (result.valid) {
+                TokenStore.setString("licenseLastValidated", System.currentTimeMillis().toString())
+                continueIntoApp()
+            } else {
+                val last = TokenStore.getString("licenseLastValidated").toLongOrNull() ?: 0L
+                val grace = 72L * 60L * 60L * 1000L
+                if (result.networkError && last > 0L && System.currentTimeMillis() - last < grace) {
+                    continueIntoApp()
+                } else {
+                    if (!result.networkError) {
+                        TokenStore.saveSecret("licenseToken", "")
+                        TokenStore.setString("licenseLastValidated", "")
+                    }
+                    showLicenseScreen(
+                        if (result.networkError) "Не удалось связаться с сервером. Проверьте интернет и попробуйте снова." 
+                        else "Лицензия недействительна, истекла или была отозвана. Введите действующий ключ."
+                    )
+                }
+            }
+        }
+    }
+
+    private fun showLicenseScreen(message: String, loading: Boolean = false) {
+        val root = ScrollView(this)
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(32, 48, 32, 32)
+        }
+        root.addView(content)
+        content.addView(TextView(this).apply {
+            text = "CS2A ПОМОЩНИК"
+            textSize = 25f
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.accent))
+            gravity = Gravity.CENTER
+        }, LinearLayout.LayoutParams(-1, -2))
+        content.addView(TextView(this).apply {
+            text = "АКТИВАЦИЯ ЛИЦЕНЗИИ"
+            textSize = 18f
+            gravity = Gravity.CENTER
+            setPadding(0, 18, 0, 22)
+        }, LinearLayout.LayoutParams(-1, -2))
+        content.addView(TextView(this).apply {
+            text = message
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, 20)
+        }, LinearLayout.LayoutParams(-1, -2))
+        val keyInput = EditText(this).apply {
+            hint = "Введите лицензионный ключ"
+            singleLine = true
+            isEnabled = !loading
+            setPadding(18, 14, 18, 14)
+        }
+        content.addView(keyInput, LinearLayout.LayoutParams(-1, -2))
+        val activate = Button(this).apply {
+            text = if (loading) "ПОДОЖДИТЕ…" else "АКТИВИРОВАТЬ"
+            isEnabled = !loading
+        }
+        content.addView(activate, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 14 })
+        activate.setOnClickListener {
+            val key = keyInput.text.toString().trim()
+            if (key.isBlank()) {
+                keyInput.error = "Введите ключ"
+                return@setOnClickListener
+            }
+            activate.isEnabled = false
+            activate.text = "АКТИВАЦИЯ…"
+            lifecycleScope.launch {
+                val result = LicenseManager.activate(this@MainActivity, key)
+                if (result.valid && !result.token.isNullOrBlank()) {
+                    TokenStore.saveSecret("licenseToken", result.token)
+                    TokenStore.setString("licenseLastValidated", System.currentTimeMillis().toString())
+                    Toast.makeText(this@MainActivity, "Лицензия успешно активирована", Toast.LENGTH_LONG).show()
+                    continueIntoApp()
+                } else {
+                    activate.isEnabled = true
+                    activate.text = "АКТИВИРОВАТЬ"
+                    Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+        val contact = Button(this).apply {
+            text = "СВЯЗАТЬСЯ С @pashkanka"
+            isEnabled = !loading
+            setOnClickListener {
+                try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/pashkanka"))) }
+                catch (_: Exception) { Toast.makeText(this@MainActivity, "@pashkanka", Toast.LENGTH_LONG).show() }
+            }
+        }
+        content.addView(contact, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 8 })
+        setContentView(root)
+    }
+
+    private fun scheduleLicenseRecheck() {
+        handler.postDelayed({
+            lifecycleScope.launch {
+                val token = TokenStore.getSecret("licenseToken")
+                if (token.isBlank()) {
+                    showLicenseScreen("Лицензия не найдена. Введите ключ.")
+                    return@launch
+                }
+                val result = LicenseManager.validate(this@MainActivity, token)
+                if (result.valid) {
+                    TokenStore.setString("licenseLastValidated", System.currentTimeMillis().toString())
+                    scheduleLicenseRecheck()
+                } else {
+                    val last = TokenStore.getString("licenseLastValidated").toLongOrNull() ?: 0L
+                    val grace = 72L * 60L * 60L * 1000L
+                    if (result.networkError && last > 0L && System.currentTimeMillis() - last < grace) {
+                        scheduleLicenseRecheck()
+                    } else {
+                        if (!result.networkError) {
+                            TokenStore.saveSecret("licenseToken", "")
+                            TokenStore.setString("licenseLastValidated", "")
+                        }
+                        showLicenseScreen("Лицензия недействительна или отозвана. Обратитесь к @pashkanka.")
+                    }
+                }
+            }
+        }, 6L * 60L * 60L * 1000L)
     }
 
     private fun showFirstLaunchDisclaimer() {
