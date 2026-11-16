@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "cs2a-license-server",
-  "main": "src/index.ts",
+  "main": "worker.js",
   "compatibility_date": "2026-11-16",
   "d1_databases": [
     {
