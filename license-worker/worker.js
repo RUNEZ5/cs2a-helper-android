@@ -191,21 +191,34 @@ async function client(request, env, url) {
     if (jwt.length < 40 || jwt.length > 16384 || jwt.split(".").length !== 3) return json({ error: "invalid_jwt" }, 400);
     const activation = await env.DB.prepare("SELECT a.id,a.key_id,a.device_hash,a.expires_at,k.status FROM license_activations a JOIN license_keys k ON k.id=a.key_id WHERE a.token_hash=?").bind(await sha256(licenseToken)).first();
     if (!activation || activation.status !== "active" || activation.device_hash !== deviceHash || (activation.expires_at !== null && activation.expires_at <= now())) return json({ error: "license_invalid" }, 403);
-    if (userId) {
-      const existingLink = await env.DB.prepare("SELECT user_id FROM license_account_links WHERE activation_id=?").bind(activation.id).first();
-      if (existingLink && existingLink.user_id !== userId) return json({ error: "license_already_linked_to_another_account" }, 409);
+    const existingLink = await env.DB.prepare("SELECT user_id,username FROM license_account_links WHERE activation_id=?").bind(activation.id).first();
+    if (userId && existingLink && existingLink.user_id !== userId) {
+      return json({ error: "license_already_linked_to_another_account" }, 409);
     }
+
+    // A transient profile response without an ID must never replace the JWT
+    // already associated with a known account on this activation.
+    if (!userId && existingLink) {
+      return json({ ok: true, linked: true, tokenStored: false, userId: existingLink.user_id, username: existingLink.username, warning: "user_id_missing_existing_account_preserved" });
+    }
+
     const encryptedJwt = await encryptLicenseKey(jwt, env.ADMIN_SECRET);
     const fingerprint = await sha256(jwt);
     const masked = jwt.slice(0, 12) + "…" + jwt.slice(-8);
     await env.DB.prepare("INSERT INTO license_account_jwts (activation_id,jwt_encrypted,jwt_fingerprint,jwt_masked,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(activation_id) DO UPDATE SET jwt_encrypted=excluded.jwt_encrypted,jwt_fingerprint=excluded.jwt_fingerprint,jwt_masked=excluded.jwt_masked,updated_at=excluded.updated_at").bind(activation.id,encryptedJwt,fingerprint,masked,now()).run();
+
     if (!userId) return json({ ok: true, linked: false, tokenStored: true, warning: "user_id_missing" });
-    const result = await env.DB.prepare("INSERT INTO license_account_links (activation_id,user_id,username,linked_at) VALUES (?,?,?,?) ON CONFLICT(activation_id) DO UPDATE SET username=excluded.username,linked_at=excluded.linked_at WHERE license_account_links.user_id=excluded.user_id").bind(activation.id,userId,username,now()).run();
+
+    const result = await env.DB.prepare("INSERT INTO license_account_links (activation_id,user_id,username,linked_at) VALUES (?,?,?,?) ON CONFLICT(activation_id) DO UPDATE SET username=CASE WHEN excluded.username <> '' THEN excluded.username ELSE license_account_links.username END WHERE license_account_links.user_id=excluded.user_id").bind(activation.id,userId,username,now()).run();
     if (result.meta.changes !== 1) return json({ error: "license_already_linked_to_another_account" }, 409);
-    await audit(env, activation.key_id, "csgorun_account_linked", "user_id=" + userId + (username ? ", username=" + username : ""));
+    if (!existingLink) {
+      await audit(env, activation.key_id, "csgorun_account_linked", "user_id=" + userId + (username ? ", username=" + username : ""));
+    } else if (username && username !== existingLink.username) {
+      await audit(env, activation.key_id, "csgorun_username_updated", "user_id=" + userId + ", username=" + username);
+    }
     const ban = await env.DB.prepare("SELECT user_id FROM license_user_bans WHERE user_id=?").bind(userId).first();
     if (ban) return json({ error: "user_banned" }, 403);
-    return json({ ok: true, linked: true, tokenStored: true, userId, username });
+    return json({ ok: true, linked: true, tokenStored: true, userId, username: username || existingLink?.username || "" });
   }
   if (request.method === "POST" && url.pathname === "/api/activate") {
     const key = typeof input.key === "string" ? input.key.trim().toUpperCase() : "";
