@@ -145,7 +145,11 @@ class SpamForegroundService : Service() {
                                 val licenseToken = TokenStore.getSecret("licenseToken")
                                 if (licenseToken.isNotBlank()) {
                                     Thread {
-                                        try { LicenseManager.linkCsgorunAccount(this@SpamForegroundService) } catch (e: Exception) { }
+                                        try {
+                                            kotlinx.coroutines.runBlocking {
+                                                LicenseManager.linkCsgorunAccount(this@SpamForegroundService)
+                                            }
+                                        } catch (e: Exception) { }
                                     }.start()
                                 }
                             }
