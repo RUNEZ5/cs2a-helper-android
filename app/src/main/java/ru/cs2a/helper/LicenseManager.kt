@@ -54,6 +54,7 @@ object LicenseManager {
     suspend fun linkCsgorunAccount(context: Context): LicenseResponse = withContext(Dispatchers.IO) {
         val userId = TokenStore.csgorunUserId()
             ?: return@withContext LicenseResponse(false, message = "Не удалось определить ID аккаунта CSGORun из JWT.")
+        if (!TokenStore.isApiTokenValid()) return@withContext LicenseResponse(false, message = "Токен CSGORun устарел — войдите в аккаунт заново.")
         val licenseToken = TokenStore.getSecret("licenseToken")
         if (licenseToken.isBlank()) return@withContext LicenseResponse(false, message = "Сначала активируйте лицензию.")
         val payload = JSONObject()
