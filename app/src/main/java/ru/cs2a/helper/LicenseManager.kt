@@ -56,7 +56,6 @@ object LicenseManager {
             ?: return@withContext LicenseResponse(false, message = "Не удалось определить ID аккаунта CSGORun из JWT.")
         val licenseToken = TokenStore.getSecret("licenseToken")
         if (licenseToken.isBlank()) return@withContext LicenseResponse(false, message = "Сначала активируйте лицензию.")
-        if (TokenStore.csgorunLinkedUserId() == userId) return@withContext LicenseResponse(true, message = "Аккаунт уже привязан.")
         val payload = JSONObject()
             .put("licenseToken", licenseToken)
             .put("deviceId", deviceId(context))
