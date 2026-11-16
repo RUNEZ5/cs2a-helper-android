@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS license_keys (
   id TEXT PRIMARY KEY,
   key_hash TEXT NOT NULL UNIQUE,
+  key_encrypted TEXT,
   activation_state TEXT NOT NULL CHECK (activation_state IN ('available','consumed','deactivated')),
   status TEXT NOT NULL CHECK (status IN ('active','blocked')),
   duration_days INTEGER,
