@@ -65,8 +65,12 @@ class LoginActivity : AppCompatActivity() {
                 accountSyncAttempted = true
                 lifecycleScope.launch {
                     val linked = LicenseManager.linkCsgorunAccount(this@LoginActivity)
-                    if (!linked.valid) Toast.makeText(this@LoginActivity, linked.message, Toast.LENGTH_LONG).show()
-                    else if (linked.message != "Аккаунт уже привязан.") Toast.makeText(this@LoginActivity, "Аккаунт CSGORun привязан к лицензии ✅", Toast.LENGTH_LONG).show()
+                    if (!linked.valid) {
+                        Toast.makeText(this@LoginActivity, linked.message, Toast.LENGTH_LONG).show()
+                        if (linked.message.contains("заблокирован", ignoreCase = true)) TokenStore.saveSecret("licenseToken", "")
+                    } else {
+                        Toast.makeText(this@LoginActivity, "Аккаунт CSGORun привязан к лицензии ✅", Toast.LENGTH_LONG).show()
+                    }
                 }
             }
             if (polling) handler.postDelayed({ pollToken() }, 1000)
@@ -87,8 +91,12 @@ class LoginActivity : AppCompatActivity() {
                                     accountSyncAttempted = true
                                     lifecycleScope.launch {
                                         val linked = LicenseManager.linkCsgorunAccount(this@LoginActivity)
-                                        if (!linked.valid) Toast.makeText(this@LoginActivity, linked.message, Toast.LENGTH_LONG).show()
-                                        else Toast.makeText(this@LoginActivity, "Аккаунт CSGORun привязан к лицензии ✅", Toast.LENGTH_LONG).show()
+                                        if (!linked.valid) {
+                                            Toast.makeText(this@LoginActivity, linked.message, Toast.LENGTH_LONG).show()
+                                            if (linked.message.contains("заблокирован", ignoreCase = true)) TokenStore.saveSecret("licenseToken", "")
+                                        } else {
+                                            Toast.makeText(this@LoginActivity, "Аккаунт CSGORun привязан к лицензии ✅", Toast.LENGTH_LONG).show()
+                                        }
                                     }
                                 }
                             }
