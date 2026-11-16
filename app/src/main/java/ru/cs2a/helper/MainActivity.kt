@@ -136,7 +136,7 @@ class MainActivity : AppCompatActivity() {
         }, LinearLayout.LayoutParams(-1, -2))
         val keyInput = EditText(this).apply {
             hint = "Введите лицензионный ключ"
-            singleLine = true
+            isSingleLine = true
             isEnabled = !loading
             setPadding(18, 14, 18, 14)
         }
