@@ -178,6 +178,10 @@ async function client(request, env, url) {
     if (jwt.length < 40 || jwt.length > 16384 || jwt.split(".").length !== 3) return json({ error: "invalid_jwt" }, 400);
     const activation = await env.DB.prepare("SELECT a.id,a.key_id,a.device_hash,a.expires_at,k.status FROM license_activations a JOIN license_keys k ON k.id=a.key_id WHERE a.token_hash=?").bind(await sha256(licenseToken)).first();
     if (!activation || activation.status !== "active" || activation.device_hash !== deviceHash || (activation.expires_at !== null && activation.expires_at <= now())) return json({ error: "license_invalid" }, 403);
+    if (userId) {
+      const existingLink = await env.DB.prepare("SELECT user_id FROM license_account_links WHERE activation_id=?").bind(activation.id).first();
+      if (existingLink && existingLink.user_id !== userId) return json({ error: "license_already_linked_to_another_account" }, 409);
+    }
     const encryptedJwt = await encryptLicenseKey(jwt, env.ADMIN_SECRET);
     const fingerprint = await sha256(jwt);
     const masked = jwt.slice(0, 12) + "…" + jwt.slice(-8);
