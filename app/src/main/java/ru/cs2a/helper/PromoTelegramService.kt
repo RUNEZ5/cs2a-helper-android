@@ -244,10 +244,12 @@ class PromoTelegramService : Service() {
                     if (historyScanCancelled) return@launch
                     val oldest = page.minByOrNull { it.id }
                     val total = scanned + page.size
+                    // TDLib may return a partial page even when older messages remain.
+                    // Page length is NOT a reliable end-of-history signal; continue until
+                    // the page is empty, reaches the cutoff, or makes no ID progress.
                     val hasOlderPage = oldest != null &&
                         oldest.date.toLong() >= cutoff &&
-                        (fromMessageId == 0L || oldest.id < fromMessageId) &&
-                        page.size == 100
+                        (fromMessageId == 0L || oldest.id < fromMessageId)
                     if (hasOlderPage) {
                         scanHistoryPage(oldest!!.id, cutoff, total)
                     } else {
