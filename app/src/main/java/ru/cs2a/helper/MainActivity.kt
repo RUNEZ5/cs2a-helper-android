@@ -42,6 +42,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val handler = Handler(Looper.getMainLooper())
+    private var selectedPromoResultsCategory = "activated"
     private val notifPermLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (!granted) Toast.makeText(this, "Без разрешения на уведомления не будет видно, что служба спама работает", Toast.LENGTH_LONG).show()
     }
@@ -166,6 +167,25 @@ class MainActivity : AppCompatActivity() {
         mirror.setSelection(PromoActivator.mirrors.indexOf(savedMirror).coerceAtLeast(0))
         scanDays.setText(TokenStore.getInt("promoScanDays", 7).toString())
         activationInterval.setText(TokenStore.getInt("promoActivationIntervalSec", 1).toString())
+
+        val promoResultTitles = mapOf(
+            "activated" to "Активированные промокоды",
+            "deposit" to "Не активированы · условия депозита",
+            "used" to "Не активированы · уже использованы",
+            "invalid" to "Не активированы · неверные или истекшие",
+            "other" to "Не активированы · другие причины"
+        )
+        fun selectPromoResults(category: String) {
+            selectedPromoResultsCategory = category
+            findViewById<TextView>(R.id.promoResultsTitle).text = promoResultTitles[category] ?: "Результаты"
+            findViewById<TextView>(R.id.promoResultsList).text = PromoActivator.historyForCategory(category)
+        }
+        findViewById<Button>(R.id.promoResultsActivatedBtn).setOnClickListener { selectPromoResults("activated") }
+        findViewById<Button>(R.id.promoResultsDepositBtn).setOnClickListener { selectPromoResults("deposit") }
+        findViewById<Button>(R.id.promoResultsUsedBtn).setOnClickListener { selectPromoResults("used") }
+        findViewById<Button>(R.id.promoResultsInvalidBtn).setOnClickListener { selectPromoResults("invalid") }
+        findViewById<Button>(R.id.promoResultsOtherBtn).setOnClickListener { selectPromoResults("other") }
+        selectPromoResults(selectedPromoResultsCategory)
 
         findViewById<Button>(R.id.promoStartBtn).setOnClickListener {
             val days = scanDays.text.toString().trim().toIntOrNull()
@@ -485,6 +505,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.promoStatus).text =
             TokenStore.getString("promoStatus", "Остановлено").ifBlank { "Остановлено" }
         findViewById<TextView>(R.id.promoLog).text = Logs.render(this, "promo", 60)
+        findViewById<TextView>(R.id.promoResultsList).text = PromoActivator.historyForCategory(selectedPromoResultsCategory)
 
         ActivityStatusService.sync(this)
         handler.postDelayed({ refreshLoop() }, 3000)
