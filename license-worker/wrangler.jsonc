@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cs2a-license-server",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-16",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cs2a-license-db",
+      "database_id": "d5d94d07-26de-472b-a005-270ce7baf3fb"
+    }
+  ]
+}
