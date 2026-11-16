@@ -64,6 +64,18 @@
 
     <TextView android:id="@+id/promoStatus" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:text="Остановлено" android:textColor="@color/textDim" android:layout_marginTop="8dp" />
+    <TextView style="@style/CardLabel" android:text="Результаты активации · выберите окно" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <Button android:id="@+id/promoResultsActivatedBtn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Активированы" android:textSize="10sp" />
+        <Button android:id="@+id/promoResultsDepositBtn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Депозит" android:textSize="10sp" />
+        <Button android:id="@+id/promoResultsUsedBtn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Уже использованы" android:textSize="10sp" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <Button android:id="@+id/promoResultsInvalidBtn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Неверные / истекшие" android:textSize="10sp" />
+        <Button android:id="@+id/promoResultsOtherBtn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Другие причины" android:textSize="10sp" />
+    </LinearLayout>
+    <TextView android:id="@+id/promoResultsTitle" style="@style/CardLabel" android:text="Активированные промокоды" />
+    <TextView android:id="@+id/promoResultsList" style="@style/LogText" android:text="Пока нет результатов." />
     <TextView style="@style/CardLabel" android:text="Найденные коды и результаты активации" />
     <TextView android:id="@+id/promoLog" style="@style/LogText" android:text="" />
 </LinearLayout>
