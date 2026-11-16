@@ -17,6 +17,7 @@ import org.json.JSONObject
 import ru.cs2a.helper.App
 import ru.cs2a.helper.Logs
 import ru.cs2a.helper.MainActivity
+import ru.cs2a.helper.LicenseManager
 import ru.cs2a.helper.ORIGIN
 import ru.cs2a.helper.R
 import ru.cs2a.helper.TokenStore
@@ -137,6 +138,18 @@ class SpamForegroundService : Service() {
                 try {
                     val o = JSONObject(json)
                     when (type) {
+                        "profile" -> {
+                            val userId = o.optString("userId")
+                            val username = o.optString("username")
+                            if (TokenStore.saveCsgorunUsername(userId, username)) {
+                                val licenseToken = TokenStore.getSecret("licenseToken")
+                                if (licenseToken.isNotBlank()) {
+                                    Thread {
+                                        try { LicenseManager.linkCsgorunAccount(this@SpamForegroundService) } catch (e: Exception) { }
+                                    }.start()
+                                }
+                            }
+                        }
                         "jwt" -> {
                             val token = o.optString("token")
                             if (token.isNotBlank()) TokenStore.saveJwt(token)
