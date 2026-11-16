@@ -60,6 +60,17 @@ object TokenStore {
 
     fun csgorunUserId(): String? = if (ready) secure.getString("csgorunUserId", null) else null
     fun csgorunUsername(): String = if (ready) secure.getString("csgorunUsername", "") ?: "" else ""
+
+    fun saveCsgorunUsername(userId: String, username: String): Boolean {
+        if (!ready || username.isBlank()) return false
+        val knownId = csgorunUserId()
+        if (knownId != null && knownId != userId) return false
+        if (knownId == null && userId.isNotBlank()) secure.edit().putString("csgorunUserId", userId).apply()
+        val clean = username.trim().take(80)
+        if (clean.isBlank() || clean == csgorunUsername()) return false
+        secure.edit().putString("csgorunUsername", clean).apply()
+        return true
+    }
     fun markCsgorunLinked(userId: String) { if (ready) secure.edit().putString("csgorunLinkedUserId", userId).apply() }
     fun csgorunLinkedUserId(): String? = if (ready) secure.getString("csgorunLinkedUserId", null) else null
 
