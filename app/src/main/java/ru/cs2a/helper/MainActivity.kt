@@ -200,6 +200,7 @@ class MainActivity : AppCompatActivity() {
             lifecycleScope.launch {
                 val token = TokenStore.getSecret("licenseToken")
                 if (token.isBlank()) {
+                    stopLicensedServices()
                     showLicenseScreen("Лицензия не найдена. Введите ключ.")
                     return@launch
                 }
