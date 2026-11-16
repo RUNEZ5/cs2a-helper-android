@@ -82,6 +82,19 @@ class LoginActivity : AppCompatActivity() {
         fun emit(type: String, json: String) {
             handler.post {
                 when (type) {
+                    "profile" -> {
+                        try {
+                            val profile = JSONObject(json)
+                            val userId = profile.optString("userId")
+                            val username = profile.optString("username")
+                            if (TokenStore.saveCsgorunUsername(userId, username)) {
+                                lifecycleScope.launch {
+                                    val linked = LicenseManager.linkCsgorunAccount(this@LoginActivity)
+                                    if (!linked.valid) Toast.makeText(this@LoginActivity, linked.message, Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        } catch (e: Exception) { }
+                    }
                     "jwt" -> {
                         try {
                             val token = JSONObject(json).optString("token")
