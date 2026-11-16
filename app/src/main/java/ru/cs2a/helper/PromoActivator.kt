@@ -122,7 +122,7 @@ object PromoActivator {
                     retryScope.launch {
                         dispatchMutex.withLock {
                             while (true) {
-                                val waitMs = maxOf(lastDispatchAt + MIN_REQUEST_INTERVAL_MS, blockedUntil) - System.currentTimeMillis()
+                                val waitMs = maxOf(lastDispatchAt + minRequestIntervalMs(), blockedUntil) - System.currentTimeMillis()
                                 if (waitMs <= 0) break
                                 delay(waitMs)
                             }
