@@ -155,7 +155,8 @@ class MainActivity : AppCompatActivity() {
         val code = findViewById<EditText>(R.id.promoLoginCode)
         val password = findViewById<EditText>(R.id.promoPassword)
         val mirror = findViewById<Spinner>(R.id.promoMirror)
-        val period = findViewById<Spinner>(R.id.promoScanPeriod)
+        val scanDays = findViewById<EditText>(R.id.promoScanDays)
+        val activationInterval = findViewById<EditText>(R.id.promoActivationInterval)
 
         apiId.setText(TokenStore.getString("promoApiId"))
         apiHash.setText(TokenStore.getSecret("promoApiHash"))
@@ -163,12 +164,14 @@ class MainActivity : AppCompatActivity() {
         mirror.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, PromoActivator.mirrors)
         val savedMirror = TokenStore.getString("promoMirror", "cs2a.run")
         mirror.setSelection(PromoActivator.mirrors.indexOf(savedMirror).coerceAtLeast(0))
-        val periods = listOf("1 день", "3 дня", "7 дней", "14 дней", "30 дней", "90 дней", "365 дней")
-        val periodDays = listOf(1, 3, 7, 14, 30, 90, 365)
-        period.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, periods)
-        period.setSelection(periodDays.indexOf(TokenStore.getInt("promoScanDays", 7)).coerceAtLeast(0))
+        scanDays.setText(TokenStore.getInt("promoScanDays", 7).toString())
+        activationInterval.setText(TokenStore.getInt("promoActivationIntervalSec", 1).toString())
 
         findViewById<Button>(R.id.promoStartBtn).setOnClickListener {
+            val days = scanDays.text.toString().trim().toIntOrNull()
+            val interval = activationInterval.text.toString().trim().toIntOrNull()
+            if (days == null || days !in 1..36500) { Toast.makeText(this, "Период должен быть от 1 до 36500 дней", Toast.LENGTH_LONG).show(); return@setOnClickListener }
+            if (interval == null || interval !in 1..86400) { Toast.makeText(this, "Интервал должен быть от 1 до 86400 секунд", Toast.LENGTH_LONG).show(); return@setOnClickListener }
             val id = apiId.text.toString().trim().toIntOrNull()
             val hash = apiHash.text.toString().trim()
             val number = phone.text.toString().trim()
@@ -184,7 +187,8 @@ class MainActivity : AppCompatActivity() {
             TokenStore.saveSecret("promoApiHash", hash)
             TokenStore.saveSecret("promoPhone", number)
             TokenStore.setString("promoMirror", PromoActivator.mirrors[mirror.selectedItemPosition])
-            TokenStore.setInt("promoScanDays", periodDays[period.selectedItemPosition])
+            TokenStore.setInt("promoScanDays", days)
+            TokenStore.setInt("promoActivationIntervalSec", interval)
             TokenStore.setBool("promoAuto", false)
             TokenStore.setBool("promoScanRequested", false)
             PromoTelegramService.start(this)

@@ -38,7 +38,7 @@ object PromoActivator {
     private val pending = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var lastDispatchAt = 0L
     @Volatile private var blockedUntil = 0L
-    private const val MIN_REQUEST_INTERVAL_MS = 1_000L
+    private fun minRequestIntervalMs(): Long = TokenStore.getInt("promoActivationIntervalSec", 1).coerceIn(1, 86400) * 1_000L
     private const val DEFAULT_RATE_LIMIT_WAIT_MS = 15_000L
 
     data class Result(val code: String, val activated: Boolean, val message: String, val status: Int)
@@ -75,7 +75,7 @@ object PromoActivator {
         try {
             dispatchMutex.withLock {
                 while (true) {
-                    val waitMs = maxOf(lastDispatchAt + MIN_REQUEST_INTERVAL_MS, blockedUntil) - System.currentTimeMillis()
+                    val waitMs = maxOf(lastDispatchAt + minRequestIntervalMs(), blockedUntil) - System.currentTimeMillis()
                     if (waitMs <= 0) break
                     delay(waitMs)
                 }

@@ -206,7 +206,7 @@ class PromoTelegramService : Service() {
         historyCandidates.clear()
         historyScanJob = null
         TokenStore.setBool("promoScanRequested", false)
-        val days = TokenStore.getInt("promoScanDays", 7).coerceIn(1, 365)
+        val days = TokenStore.getInt("promoScanDays", 7).coerceIn(1, 36500)
         val cutoff = (System.currentTimeMillis() / 1000L) - days * 86400L
         status("Первичная проверка @promo_runs за $days дн.")
         scanHistoryPage(0L, cutoff, 0)
