@@ -20,6 +20,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.security.MessageDigest
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -163,6 +166,44 @@ object PromoActivator {
                 }
             }
         })
+    }
+
+
+    // Result windows use stable reason groups; old history entries are classified on read too.
+    fun historyForCategory(category: String): String {
+        val jwt = TokenStore.jwt() ?: return "Сначала войдите в аккаунт на выбранном зеркале."
+        val history = try { JSONArray(TokenStore.getString(historyKey(jwt), "[]")) } catch (_: Exception) { JSONArray() }
+        val items = ArrayList<JSONObject>()
+        for (i in 0 until history.length()) {
+            val item = history.optJSONObject(i) ?: continue
+            val group = resultCategory(item.optBoolean("activated", false), item.optString("message"))
+            if (category == "all" || category == group) items.add(item)
+        }
+        if (items.isEmpty()) return "Пока нет результатов в этой категории."
+        val fmt = SimpleDateFormat("dd.MM HH:mm:ss", Locale.getDefault())
+        return items.asReversed().take(200).joinToString("\n\n") { item ->
+            val time = fmt.format(Date(item.optLong("time")))
+            val code = item.optString("code")
+            val message = item.optString("message")
+            val mirror = item.optString("mirror")
+            "$time  ·  $code\n$message\nЗеркало: $mirror"
+        }
+    }
+
+    private fun resultCategory(activated: Boolean, message: String): String {
+        if (activated) return "activated"
+        val value = message.uppercase(Locale.ROOT)
+        return when {
+            value.contains("DEPOSIT_CONDITION") || value.contains("ДЕПОЗИТ") ||
+                value.contains("DEPOSIT CONDITION") || value.contains("MINIMUM TOP") -> "deposit"
+            value.contains("ALREADY") || value.contains("УЖЕ") ||
+                value.contains("USED") || value.contains("ИСПОЛЬЗОВАН") -> "used"
+            value.contains("INVALID") || value.contains("NOT FOUND") ||
+                value.contains("EXPIRED") || value.contains("НЕ НАЙДЕН") ||
+                value.contains("НЕВЕРН") || value.contains("ИСТЁК") ||
+                value.contains("ИСТЕК") -> "invalid"
+            else -> "other"
+        }
     }
 
     private fun remember(code: String, mirror: String, activated: Boolean, message: String, jwt: String) {
