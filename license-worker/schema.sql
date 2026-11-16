@@ -24,3 +24,7 @@ CREATE TABLE IF NOT EXISTS license_events (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_license_events_created ON license_events(created_at);
+
+CREATE TABLE IF NOT EXISTS license_account_links (activation_id TEXT PRIMARY KEY REFERENCES license_activations(id) ON DELETE CASCADE, user_id TEXT NOT NULL, username TEXT NOT NULL DEFAULT '', linked_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_license_account_user ON license_account_links(user_id);
+CREATE TABLE IF NOT EXISTS license_user_bans (user_id TEXT PRIMARY KEY, username TEXT NOT NULL DEFAULT '', banned_at INTEGER NOT NULL);
