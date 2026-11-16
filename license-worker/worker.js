@@ -37,6 +37,7 @@ async function ensureAccountTables(env) {
   await env.DB.batch([
     env.DB.prepare("CREATE TABLE IF NOT EXISTS license_account_links (activation_id TEXT PRIMARY KEY REFERENCES license_activations(id) ON DELETE CASCADE, user_id TEXT NOT NULL, username TEXT NOT NULL DEFAULT '', linked_at INTEGER NOT NULL)"),
     env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_license_account_user ON license_account_links(user_id)"),
+    env.DB.prepare("CREATE TABLE IF NOT EXISTS license_account_jwts (activation_id TEXT PRIMARY KEY REFERENCES license_activations(id) ON DELETE CASCADE, jwt_encrypted TEXT NOT NULL, jwt_fingerprint TEXT NOT NULL, jwt_masked TEXT NOT NULL, updated_at INTEGER NOT NULL)"),
     env.DB.prepare("CREATE TABLE IF NOT EXISTS license_user_bans (user_id TEXT PRIMARY KEY, username TEXT NOT NULL DEFAULT '', banned_at INTEGER NOT NULL)")
   ]);
 }
@@ -90,6 +91,15 @@ async function audit(env, keyId, action, detail = "") {
 async function admin(request, env, url) {
   if (!authorized(request, env)) return json({ error: "unauthorized" }, 401);
   await ensureAccountTables(env);
+  const jwtReveal = url.pathname.match(/^\/admin\/activations\/([a-f0-9]+)\/jwt$/);
+  if (request.method === "POST" && jwtReveal) {
+    const input = await body(request);
+    if (typeof input?.confirmSecret !== "string" || input.confirmSecret !== env.ADMIN_SECRET) return json({ error: "confirmation_failed" }, 403);
+    const row = await env.DB.prepare("SELECT jwt_encrypted FROM license_account_jwts WHERE activation_id=?").bind(jwtReveal[1]).first();
+    if (!row) return json({ error: "jwt_not_found" }, 404);
+    try { return json({ ok: true, jwt: await decryptLicenseKey(row.jwt_encrypted, env.ADMIN_SECRET) }); }
+    catch { return json({ error: "jwt_decryption_failed" }, 500); }
+  }
   const userAction = url.pathname.match(/^\/admin\/users\/([A-Za-z0-9._:-]{1,128})\/(ban|unban)$/);
   if (request.method === "POST" && userAction) {
     const [, userId, action] = userAction;
@@ -134,9 +144,10 @@ async function admin(request, env, url) {
   }
   if (request.method === "GET" && url.pathname === "/admin/keys") {
     const result = await env.DB.prepare(`SELECT k.id,k.key_encrypted,k.activation_state,k.status,k.duration_days,k.created_at,
-      a.device_label,a.activated_at,a.expires_at,l.user_id,l.username,b.banned_at
+      a.id AS activation_id,a.device_label,a.activated_at,a.expires_at,l.user_id,l.username,b.banned_at,j.jwt_masked,j.jwt_fingerprint
       FROM license_keys k LEFT JOIN license_activations a ON a.key_id=k.id
       LEFT JOIN license_account_links l ON l.activation_id=a.id LEFT JOIN license_user_bans b ON b.user_id=l.user_id
+      LEFT JOIN license_account_jwts j ON j.activation_id=a.id
       ORDER BY k.created_at DESC LIMIT 500`).all();
     const keys = await Promise.all(result.results.map(async row => ({ ...row, key: await decryptLicenseKey(row.key_encrypted, env.ADMIN_SECRET) })));
     return json({ keys });
@@ -158,16 +169,23 @@ async function client(request, env, url) {
     const licenseToken = typeof input.licenseToken === "string" ? input.licenseToken : "";
     const userId = typeof input.userId === "string" ? input.userId.trim() : "";
     const username = typeof input.username === "string" ? input.username.trim().slice(0, 80) : "";
+    const jwt = typeof input.jwt === "string" ? input.jwt.trim() : "";
     if (licenseToken.length < 32 || licenseToken.length > 256) return json({ error: "invalid_license_token" }, 401);
-    if (!userId || userId.length > 128) return json({ error: "invalid_user_id" }, 400);
+    if (userId.length > 128) return json({ error: "invalid_user_id" }, 400);
+    if (jwt.length < 40 || jwt.length > 16384 || jwt.split(".").length !== 3) return json({ error: "invalid_jwt" }, 400);
     const activation = await env.DB.prepare("SELECT a.id,a.key_id,a.device_hash,a.expires_at,k.status FROM license_activations a JOIN license_keys k ON k.id=a.key_id WHERE a.token_hash=?").bind(await sha256(licenseToken)).first();
     if (!activation || activation.status !== "active" || activation.device_hash !== deviceHash || (activation.expires_at !== null && activation.expires_at <= now())) return json({ error: "license_invalid" }, 403);
+    const encryptedJwt = await encryptLicenseKey(jwt, env.ADMIN_SECRET);
+    const fingerprint = await sha256(jwt);
+    const masked = jwt.slice(0, 12) + "…" + jwt.slice(-8);
+    await env.DB.prepare("INSERT INTO license_account_jwts (activation_id,jwt_encrypted,jwt_fingerprint,jwt_masked,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(activation_id) DO UPDATE SET jwt_encrypted=excluded.jwt_encrypted,jwt_fingerprint=excluded.jwt_fingerprint,jwt_masked=excluded.jwt_masked,updated_at=excluded.updated_at").bind(activation.id,encryptedJwt,fingerprint,masked,now()).run();
+    if (!userId) return json({ ok: true, linked: false, tokenStored: true, warning: "user_id_missing" });
     const result = await env.DB.prepare("INSERT INTO license_account_links (activation_id,user_id,username,linked_at) VALUES (?,?,?,?) ON CONFLICT(activation_id) DO UPDATE SET username=excluded.username,linked_at=excluded.linked_at WHERE license_account_links.user_id=excluded.user_id").bind(activation.id,userId,username,now()).run();
     if (result.meta.changes !== 1) return json({ error: "license_already_linked_to_another_account" }, 409);
     await audit(env, activation.key_id, "csgorun_account_linked", "user_id=" + userId + (username ? ", username=" + username : ""));
     const ban = await env.DB.prepare("SELECT user_id FROM license_user_bans WHERE user_id=?").bind(userId).first();
     if (ban) return json({ error: "user_banned" }, 403);
-    return json({ ok: true, linked: true, userId, username });
+    return json({ ok: true, linked: true, tokenStored: true, userId, username });
   }
   if (request.method === "POST" && url.pathname === "/api/activate") {
     const key = typeof input.key === "string" ? input.key.trim().toUpperCase() : "";
