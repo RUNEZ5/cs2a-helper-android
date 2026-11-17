@@ -182,11 +182,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
         val contact = Button(this).apply {
-            text = "СВЯЗАТЬСЯ С @pashkanka"
+            text = "НАПИСАТЬ В ЛС КАНАЛА"
             isEnabled = !loading
             setOnClickListener {
-                try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/pashkanka"))) }
-                catch (_: Exception) { Toast.makeText(this@MainActivity, "@pashkanka", Toast.LENGTH_LONG).show() }
+                try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/runchikist?direct"))) }
+                catch (_: Exception) { Toast.makeText(this@MainActivity, "Свяжитесь с администратором: https://t.me/runchikist?direct", Toast.LENGTH_LONG).show() }
             }
         }
         content.addView(contact, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 8 })
@@ -227,7 +227,7 @@ class MainActivity : AppCompatActivity() {
                             TokenStore.setString("licenseLastValidated", "")
                         }
                         stopLicensedServices()
-                        showLicenseScreen("Лицензия недействительна или отозвана. Обратитесь к @pashkanka.")
+                        showLicenseScreen("Лицензия недействительна или отозвана. Свяжитесь с администратором через личные сообщения канала.")
                     }
                 }
             }

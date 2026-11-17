@@ -2,6 +2,8 @@ package ru.cs2a.helper
 
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.content.Intent
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.webkit.JavascriptInterface
@@ -79,8 +81,15 @@ class LoginActivity : AppCompatActivity() {
                 handler.postDelayed({ pollToken() }, 1000)
                 AlertDialog.Builder(this)
                     .setTitle("Вы вышли из аккаунта")
-                    .setMessage("Ключ уже привязан к одному аккаунту CSGORun. Выход не снимает эту привязку. Для дальнейших указаний свяжитесь с @pashkanka.")
-                    .setPositiveButton("Понятно", null)
+                    .setMessage("Ключ уже привязан к одному аккаунту CSGORun. Выход не снимает эту привязку. Для дальнейших указаний свяжитесь с администратором канала.")
+                    .setPositiveButton("Связаться с администратором") { _, _ ->
+                        try {
+                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/runchikist?direct")))
+                        } catch (_: Exception) {
+                            Toast.makeText(this, "https://t.me/runchikist?direct", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                    .setNegativeButton("Понятно", null)
                     .show()
             }
         }
