@@ -309,6 +309,33 @@ class MainActivity : AppCompatActivity() {
 
     private fun showTab(name: String) {
         for ((k, v) in panels) v.visibility = if (k == name) View.VISIBLE else View.GONE
+
+        val page = when (name) {
+            "farm" -> "Ферма" to "Ежедневные награды и автоматизация"
+            "raffles" -> "Розыгрыши" to "Автоматическое участие и расписание"
+            "spam" -> "Чат-активность" to "Управление сообщениями и шаблоном"
+            "promo" -> "Промокоды" to "Поиск, проверка и активация"
+            "status" -> "Статус и настройки" to "Аккаунт, обслуживание и диагностика"
+            else -> "CS2A Helper" to "Ваш помощник"
+        }
+        findViewById<TextView>(R.id.pageTitle).text = page.first
+        findViewById<TextView>(R.id.pageSubtitle).text = page.second
+
+        val tabIds = mapOf(
+            "farm" to R.id.tabFarm,
+            "raffles" to R.id.tabRaffles,
+            "spam" to R.id.tabSpam,
+            "promo" to R.id.tabPromo,
+            "status" to R.id.tabStatus
+        )
+        for ((key, id) in tabIds) {
+            val tab = findViewById<Button>(id)
+            val selected = key == name
+            tab.setTextColor(ContextCompat.getColor(this, if (selected) R.color.bg else R.color.textDim))
+            tab.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                ContextCompat.getColor(this, if (selected) R.color.accent else R.color.card)
+            )
+        }
     }
 
     private fun setupPromo() {
