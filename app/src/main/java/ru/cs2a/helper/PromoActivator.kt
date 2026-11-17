@@ -181,7 +181,7 @@ object PromoActivator {
         }
         if (items.isEmpty()) return "Пока нет результатов в этой категории."
         val fmt = SimpleDateFormat("dd.MM HH:mm:ss", Locale.getDefault())
-        return items.asReversed().take(200).joinToString("\n\n") { item ->
+        return items.asReversed().joinToString("\n\n") { item ->
             val time = fmt.format(Date(item.optLong("time")))
             val code = item.optString("code")
             val message = item.optString("message")
@@ -211,7 +211,6 @@ object PromoActivator {
         val history = try { JSONArray(TokenStore.getString(key, "[]")) } catch (_: Exception) { JSONArray() }
         history.put(JSONObject().put("code", code).put("mirror", mirror)
             .put("activated", activated).put("message", message).put("time", System.currentTimeMillis()))
-        while (history.length() > 500) history.remove(0)
         TokenStore.setString(key, history.toString())
     }
 }
