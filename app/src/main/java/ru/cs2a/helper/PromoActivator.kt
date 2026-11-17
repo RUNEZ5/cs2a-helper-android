@@ -42,7 +42,7 @@ object PromoActivator {
     private const val MAX_TIMEOUT_RETRIES = 2
     private val pending = ConcurrentHashMap.newKeySet<String>()
     private val activatedCodesByAccount = HashMap<String, MutableSet<String>>()
-    private val recentHistoryByAccount = HashMap<String, ArrayDeque<JSONObject>>()
+    private val recentHistoryByAccount = HashMap<String, MutableMap<String, ArrayDeque<JSONObject>>>()
     @Volatile private var lastDispatchAt = 0L
     @Volatile private var blockedUntil = 0L
     private fun minRequestIntervalMs(): Long = TokenStore.getInt("promoActivationIntervalSec", 1).coerceIn(1, 86400) * 1_000L
@@ -78,20 +78,6 @@ object PromoActivator {
         return file
     }
 
-    @Synchronized
-    private fun readHistory(jwt: String): List<JSONObject> {
-        val file = historyFile(jwt)
-        if (file == null) {
-            val legacy = try { JSONArray(TokenStore.getString(historyKey(jwt), "[]")) } catch (_: Exception) { JSONArray() }
-            return (0 until legacy.length()).mapNotNull { legacy.optJSONObject(it) }
-        }
-        if (!file.exists()) return emptyList()
-        val items = ArrayList<JSONObject>()
-        file.forEachLine(Charsets.UTF_8) { line ->
-            if (line.isNotBlank()) try { items.add(JSONObject(line)) } catch (_: Exception) { }
-        }
-        return items
-    }
 
     @Synchronized
     private fun appendHistory(jwt: String, item: JSONObject) {
@@ -106,7 +92,9 @@ object PromoActivator {
             writer.append(item.toString()).append('\n')
         }
         val accountKey = historyKey(jwt)
-        recentHistoryByAccount[accountKey]?.let { queue ->
+        val group = resultCategory(item.optBoolean("activated", false), item.optString("message"))
+        recentHistoryByAccount[accountKey]?.let { byCategory ->
+            val queue = byCategory.getOrPut(group) { ArrayDeque() }
             if (queue.size == 12) queue.removeFirst()
             queue.addLast(item)
         }
@@ -249,38 +237,38 @@ object PromoActivator {
 
 
     @Synchronized
-    private fun readRecentHistory(jwt: String, limit: Int = 12): List<JSONObject> {
+    private fun readRecentHistory(jwt: String, category: String, limit: Int = 12): List<JSONObject> {
         val accountKey = historyKey(jwt)
-        recentHistoryByAccount[accountKey]?.let { return it.toList() }
+        val cached = recentHistoryByAccount[accountKey]
+        if (cached != null) return cached[category]?.toList().orEmpty()
+
+        val byCategory = HashMap<String, ArrayDeque<JSONObject>>()
+        fun add(item: JSONObject) {
+            val group = resultCategory(item.optBoolean("activated", false), item.optString("message"))
+            val queue = byCategory.getOrPut(group) { ArrayDeque() }
+            if (queue.size == limit) queue.removeFirst()
+            queue.addLast(item)
+        }
         val file = historyFile(jwt)
-        val tail = ArrayDeque<JSONObject>()
         if (file == null) {
             val legacy = try { JSONArray(TokenStore.getString(accountKey, "[]")) } catch (_: Exception) { JSONArray() }
-            for (i in maxOf(0, legacy.length() - limit) until legacy.length()) {
-                legacy.optJSONObject(i)?.let {
-                    if (tail.size == limit) tail.removeFirst()
-                    tail.addLast(it)
-                }
-            }
+            for (i in 0 until legacy.length()) legacy.optJSONObject(i)?.let(::add)
         } else if (file.exists()) {
             file.forEachLine(Charsets.UTF_8) { line ->
-                if (line.isNotBlank()) try {
-                    if (tail.size == limit) tail.removeFirst()
-                    tail.addLast(JSONObject(line))
-                } catch (_: Exception) { }
+                if (line.isNotBlank()) try { add(JSONObject(line)) } catch (_: Exception) { }
             }
         }
-        recentHistoryByAccount[accountKey] = tail
-        return tail.toList()
+        recentHistoryByAccount[accountKey] = byCategory
+        return byCategory[category]?.toList().orEmpty()
     }
 
     // Result windows use stable reason groups; old history entries are classified on read too.
     fun historyForCategory(category: String): String {
         val jwt = TokenStore.jwt() ?: return "Сначала войдите в аккаунт на выбранном зеркале."
-        val items = readRecentHistory(jwt).filter { item ->
-            val group = resultCategory(item.optBoolean("activated", false), item.optString("message"))
-            category == "all" || category == group
-        }
+        val items = if (category == "all") {
+            val all = readRecentHistory(jwt, "activated") + readRecentHistory(jwt, "deposit") + readRecentHistory(jwt, "used") + readRecentHistory(jwt, "invalid") + readRecentHistory(jwt, "other")
+            all.sortedBy { it.optLong("time") }.takeLast(12)
+        } else readRecentHistory(jwt, category)
         if (items.isEmpty()) return "Пока нет результатов в этой категории."
         val fmt = SimpleDateFormat("dd.MM HH:mm:ss", Locale.getDefault())
         return items.asReversed().joinToString("\n") { item ->
