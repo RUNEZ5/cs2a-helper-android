@@ -581,7 +581,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-    private fun periodLabel(p: String) = when (p) {\n        "hour" -> "каждый час"; "day" -> "каждый день"; "week" -> "каждую неделю"\n        "month" -> "каждый месяц"; else -> "для олдов"\n    }\n\n    // ---------------- Спам ----------------
+    private fun periodLabel(p: String) = when (p) {
+        "hour" -> "каждый час"; "day" -> "каждый день"; "week" -> "каждую неделю"
+        "month" -> "каждый месяц"; else -> "для олдов"
+    }
+
+    // ---------------- Спам ----------------
     private fun setupSpam() {
         val textEdit = findViewById<EditText>(R.id.spamText)
         textEdit.setText(TokenStore.getString("spamText"))
