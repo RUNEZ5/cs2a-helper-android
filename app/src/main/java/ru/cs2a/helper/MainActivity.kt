@@ -468,7 +468,8 @@ class MainActivity : AppCompatActivity() {
                 .setNegativeButton("Отмена", null)
                 .setPositiveButton("Удалить") { _, _ ->
                     if (PromoActivator.clearCurrentAccountHistory()) {
-                        Toast.makeText(this, "История использованных промо удалена", Toast.LENGTH_SHORT).show()
+                        selectPromoResults(selectedPromoResultsCategory)
+                        Toast.makeText(this, "История промокодов очищена", Toast.LENGTH_SHORT).show()
                     } else {
                         Toast.makeText(this, "Нет активного токена аккаунта", Toast.LENGTH_SHORT).show()
                     }
