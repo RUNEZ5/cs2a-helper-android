@@ -535,7 +535,7 @@ class MainActivity : AppCompatActivity() {
 
                 val info = TextView(this).apply {
                     layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                    text = "${item.name}\\n${item.price} · ${periodLabel(item.period)}"
+                    text = "${item.name}\n${item.price} · ${periodLabel(item.period)}"
                     setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
                     textSize = 13f
                 }
@@ -581,7 +581,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-    // ---------------- Спам ----------------
+    private fun periodLabel(p: String) = when (p) {\n        "hour" -> "каждый час"; "day" -> "каждый день"; "week" -> "каждую неделю"\n        "month" -> "каждый месяц"; else -> "для олдов"\n    }\n\n    // ---------------- Спам ----------------
     private fun setupSpam() {
         val textEdit = findViewById<EditText>(R.id.spamText)
         textEdit.setText(TokenStore.getString("spamText"))
