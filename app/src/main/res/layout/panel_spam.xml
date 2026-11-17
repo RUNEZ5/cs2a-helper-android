@@ -20,5 +20,12 @@
     </LinearLayout>
 
     <TextView android:id="@+id/spamStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Остановлено" android:textColor="@color/textDim" android:layout_marginTop="8dp" />
-    <TextView android:id="@+id/spamLog" style="@style/LogText" android:text="" />
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="180dp"
+        android:fillViewport="true"
+        android:nestedScrollingEnabled="true"
+        android:overScrollMode="ifContentScrolls">
+        <TextView android:id="@+id/spamLog" style="@style/LogText" android:text="" />
+    </androidx.core.widget.NestedScrollView>
 </LinearLayout>
