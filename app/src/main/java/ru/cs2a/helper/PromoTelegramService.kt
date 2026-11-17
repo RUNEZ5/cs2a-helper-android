@@ -199,7 +199,7 @@ class PromoTelegramService : Service() {
                 client?.send(TdApi.OpenChat(chatId), authResult("Канал подключён"))
                 when {
                     TokenStore.getBool("promoScanRequested") -> scanHistory()
-                    TokenStore.getBool("promoAuto") -> status("Мониторинг @promo_runs активен")
+                    TokenStore.getBool("promoAuto") -> status("Мониторинг канала активен")
                     else -> status("Telegram подключён · канал готов")
                 }
             } else if (result is TdApi.Error) {
