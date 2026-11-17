@@ -79,7 +79,7 @@ class PromoTelegramService : Service() {
             }
             ACTION_MONITOR_START -> {
                 TokenStore.setBool("promoAuto", true)
-                if (client == null) startClient() else if (chatId != 0L) status("Мониторинг @promo_runs активен") else findChannel()
+                if (client == null) startClient() else if (chatId != 0L) status("Мониторинг канала активен") else findChannel()
             }
             ACTION_MONITOR_STOP -> {
                 TokenStore.setBool("promoAuto", false)
@@ -156,7 +156,7 @@ class PromoTelegramService : Service() {
                 is TdApi.AuthorizationStateReady -> {
                     TokenStore.saveSecret("promo2fa", "")
                     TokenStore.setString("promoLoginCode", "")
-                    status("Telegram подключён · ищу @promo_runs")
+                    status("Telegram подключён · поиск канала")
                     findChannel()
                 }
                 is TdApi.AuthorizationStateClosed -> {
@@ -196,15 +196,15 @@ class PromoTelegramService : Service() {
         client?.send(TdApi.SearchPublicChat("@promo_runs")) { result ->
             if (result is TdApi.Chat) {
                 chatId = result.id
-                client?.send(TdApi.OpenChat(chatId), authResult("Канал @promo_runs открыт"))
+                client?.send(TdApi.OpenChat(chatId), authResult("Канал подключён"))
                 when {
                     TokenStore.getBool("promoScanRequested") -> scanHistory()
                     TokenStore.getBool("promoAuto") -> status("Мониторинг @promo_runs активен")
-                    else -> status("Telegram подключён · канал @promo_runs готов")
+                    else -> status("Telegram подключён · канал готов")
                 }
             } else if (result is TdApi.Error) {
                 channelSearchStarted = false
-                status("Не удалось открыть @promo_runs: ${result.message}")
+                status("Не удалось подключиться к каналу: ${result.message}")
             }
         }
     }
@@ -219,7 +219,7 @@ class PromoTelegramService : Service() {
         TokenStore.setBool("promoScanRequested", false)
         val days = TokenStore.getInt("promoScanDays", 7).coerceIn(1, 36500)
         val cutoff = (System.currentTimeMillis() / 1000L) - days * 86400L
-        status("Первичная проверка @promo_runs за $days дн.")
+        status("Первичная проверка истории канала за $days дн.")
         scanHistoryPage(0L, cutoff, 0)
     }
 
