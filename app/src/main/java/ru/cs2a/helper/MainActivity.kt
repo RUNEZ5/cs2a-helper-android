@@ -499,22 +499,7 @@ class MainActivity : AppCompatActivity() {
                 lifecycleScope.launch {
                     for (item in LOTTERIES) {
                         Api.joinLottery(this@MainActivity, item)
-                        val visiblePanel = panels.entries.firstOrNull { it.value.visibility == View.VISIBLE }?.key
-        when (visiblePanel) {
-            "farm" -> findViewById<TextView>(R.id.farmLog).text = Logs.render(this, "farm")
-            "raffles" -> findViewById<TextView>(R.id.rafflesLog).text = Logs.render(this, "raffles")
-            "spam" -> {
-                findViewById<TextView>(R.id.spamLog).text = Logs.render(this, "spam")
-                findViewById<TextView>(R.id.spamTplStatus).text =
-                    if (TokenStore.getBool("spamHasTemplate")) "Формат записан ✅" else "Формат пока не записан — нажмите «Обучить формат»"
-            }
-            "promo" -> {
-                findViewById<TextView>(R.id.promoStatus).text =
-                    TokenStore.getString("promoStatus", "Остановлено").ifBlank { "Остановлено" }
-                findViewById<TextView>(R.id.promoLog).text = Logs.render(this, "promo")
-                findViewById<TextView>(R.id.promoResultsList).text = PromoActivator.historyForCategory(selectedPromoResultsCategory)
-            }
-        }
+                        refreshLogs()
                     }
                 }
                 for (item in LOTTERIES) AlarmScheduler.scheduleLottery(this, item.id, item.cycleMin)
@@ -611,7 +596,22 @@ class MainActivity : AppCompatActivity() {
     private fun refreshLoop() {
         if (!mainUiActive) return
         refreshStatus()
-        refreshLogs()
+        val visiblePanel = panels.entries.firstOrNull { it.value.visibility == View.VISIBLE }?.key
+        when (visiblePanel) {
+            "farm" -> findViewById<TextView>(R.id.farmLog).text = Logs.render(this, "farm")
+            "raffles" -> findViewById<TextView>(R.id.rafflesLog).text = Logs.render(this, "raffles")
+            "spam" -> {
+                findViewById<TextView>(R.id.spamLog).text = Logs.render(this, "spam")
+                findViewById<TextView>(R.id.spamTplStatus).text =
+                    if (TokenStore.getBool("spamHasTemplate")) "Формат записан ✅" else "Формат пока не записан — нажмите «Обучить формат»"
+            }
+            "promo" -> {
+                findViewById<TextView>(R.id.promoStatus).text =
+                    TokenStore.getString("promoStatus", "Остановлено").ifBlank { "Остановлено" }
+                findViewById<TextView>(R.id.promoLog).text = Logs.render(this, "promo")
+                findViewById<TextView>(R.id.promoResultsList).text = PromoActivator.historyForCategory(selectedPromoResultsCategory)
+            }
+        }
 
         ActivityStatusService.sync(this)
         handler.postDelayed({ refreshLoop() }, 3000)
