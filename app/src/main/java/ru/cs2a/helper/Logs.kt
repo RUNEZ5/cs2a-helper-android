@@ -15,6 +15,25 @@ object Logs {
     private const val MIGRATED_KEY = "logsMigratedToFile"
     private const val FILE_NAME = "logs.jsonl"
     private val fmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    private const val DISPLAY_LIMIT = 12
+    private val recentByTab = HashMap<String, ArrayDeque<String>>()
+    private var cacheLoaded = false
+
+    private fun loadRecentCache(ctx: Context) {
+        if (cacheLoaded) return
+        ensureMigrated(ctx)
+        val file = File(ctx.filesDir, FILE_NAME)
+        if (file.exists()) file.forEachLine(Charsets.UTF_8) { line ->
+            if (line.isNotBlank()) try {
+                val item = JSONObject(line)
+                val tab = item.optString("tab")
+                val queue = recentByTab.getOrPut(tab) { ArrayDeque() }
+                if (queue.size == DISPLAY_LIMIT) queue.removeFirst()
+                queue.addLast(fmt.format(Date(item.optLong("t"))) + "  " + item.optString("text"))
+            } catch (_: Exception) { }
+        }
+        cacheLoaded = true
+    }
 
     @Synchronized
     private fun ensureMigrated(ctx: Context) {
@@ -43,25 +62,16 @@ object Logs {
         FileOutputStream(File(ctx.filesDir, FILE_NAME), true).bufferedWriter(Charsets.UTF_8).use { writer ->
             writer.append(item.toString()).append('\n')
         }
+        if (cacheLoaded) {
+            val queue = recentByTab.getOrPut(tab) { ArrayDeque() }
+            if (queue.size == DISPLAY_LIMIT) queue.removeFirst()
+            queue.addLast(fmt.format(Date(item.optLong("t"))) + "  " + text)
+        }
     }
 
-    fun render(ctx: Context, tab: String, limit: Int = 12): String {
-        ensureMigrated(ctx)
-        val tail = ArrayDeque<String>()
-        val file = File(ctx.filesDir, FILE_NAME)
-        if (file.exists()) {
-            file.forEachLine(Charsets.UTF_8) { line ->
-                if (line.isNotBlank()) {
-                    try {
-                        val item = JSONObject(line)
-                        if (item.optString("tab") == tab) {
-                            if (tail.size == limit) tail.removeFirst()
-                            tail.addLast(fmt.format(Date(item.optLong("t"))) + "  " + item.optString("text"))
-                        }
-                    } catch (_: Exception) { }
-                }
-            }
-        }
-        return tail.toList().asReversed().joinToString("\n")
+    @Synchronized
+    fun render(ctx: Context, tab: String): String {
+        loadRecentCache(ctx)
+        return recentByTab[tab]?.toList()?.asReversed()?.joinToString("\n").orEmpty()
     }
 }
