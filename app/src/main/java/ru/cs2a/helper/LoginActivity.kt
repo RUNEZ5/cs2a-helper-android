@@ -137,7 +137,8 @@ class LoginActivity : AppCompatActivity() {
                         try {
                             val token = JSONObject(json).optString("token")
                             if (token.isNotBlank()) {
-                                accountSyncAttempted = false
+                                val tokenChanged = token != TokenStore.jwt()
+                                if (tokenChanged) accountSyncAttempted = false
                                 TokenStore.saveJwt(token)
                                 if (!accountSyncAttempted) {
                                     accountSyncAttempted = true
