@@ -124,34 +124,6 @@ object Api {
         return r.status in 0..399 && r.status != 0 && !r.unauthorized
     }
 
-    // ---------------- кэшбек ----------------
-    suspend fun cashbackAttempt(ctx: android.content.Context): Boolean {
-        val r = call("/cashback", "POST")
-        if (r.error != null && r.status == 0) { Logs.add(ctx, "farm", "Кэшбек: ошибка — ${r.error}", "bad"); return false }
-        val body = r.data
-        val data = body?.optJSONObject("data")
-        val win = data?.optJSONObject("winCashback")
-        val err = when {
-            r.unauthorized -> AUTH_MSG
-            body?.optBoolean("success", true) == false -> body.optString("error").ifBlank { null }
-            else -> null
-        }
-        val ok = r.status in 0..399 && r.status != 0 && err == null
-        if (!ok) {
-            Logs.add(ctx, "farm", "Кэшбек: ${err ?: "условия не выполнены"}", "bad")
-            return false
-        }
-        if (win != null) {
-            val reward = win.optDouble("reward", 0.0)
-            val sym = win.optString("currencySymbol", "$")
-            if (reward > 0) Logs.add(ctx, "farm", "Кэшбек получен ✅ +$reward$sym", "ok")
-            else Logs.add(ctx, "farm", "Кэшбек: сегодня получать нечего (условия пока не выполнены)", "")
-        } else {
-            Logs.add(ctx, "farm", "Кэшбек: запрос прошёл, но ответ неожиданного вида", "")
-        }
-        return true
-    }
-
     // ---------------- розыгрыши ----------------
     suspend fun joinLottery(ctx: android.content.Context, item: Lottery): Boolean {
         val r = call("/lottery/join", "POST", JSONObject().put("lotteryId", item.id))
