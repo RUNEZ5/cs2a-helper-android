@@ -2,22 +2,17 @@ package ru.cs2a.helper
 
 import java.util.Locale
 
-/**
- * Context-aware Telegram promo parser.
- * Explicit Telegram code entities and inline-code spans have priority. For plain text,
- * a candidate is accepted only when it follows a price or a recognizable promo label.
- */
+/** Conservative parser: explicit code formatting or a price/case marker is preferred. */
 object PromoCodeParser {
-    private val tokenRegex = Regex("""(?<![\p{L}\p{N}])[\p{L}\p{N}]{4,40}(?![\p{L}\p{N}])""")
-    private val candidateRegex = Regex("""[\p{L}\p{N}]{4,40}""")
-    private val numericRegex = Regex("""\d{8,32}""")
+    private val tokenRegex = Regex("""(?<![\\p{L}\\p{N}])[\\p{L}\\p{N}]{4,40}(?![\\p{L}\\p{N}])""")
+    private val candidateRegex = Regex("""[\\p{L}\\p{N}]{4,40}""")
+    private val numericRegex = Regex("""\\d{8,32}""")
     private val priceRegex = Regex(
-        """(?iu)(?:\d+(?:[.,]\d+)?\s*(?:\$|€|₽|руб(?:\.|лей)?|usd)|(?:\$|€|₽)\s*\d+(?:[.,]\d+)?)"""
+        """(?iu)(?:\\d+(?:[.,]\\d+)?\\s*(?:\\$|€|₽|руб(?:\\.|лей)?|usd)|(?:\\$|€|₽)\\s*\\d+(?:[.,]\\d+)?)"""
     )
-    private val promoContextRegex = Regex(
-        """(?iu)(?:\bКЕЙС\b|\bCASE\b|КОЛЕСО|ПРОМО\s*(?:НА|ТАЙМ|ЧАТ)?|PROMO|FREEBET|ФРИБЕТ|LEVEL|\bLVL\d*)"""
-    )
+    private val caseRegex = Regex("""(?iu)\\b(?:КЕЙС|CASE)\\b""")
     private val separatorRegex = Regex("""[—–:-]""")
+    private val urlRegex = Regex("""(?iu)(?:https?://|www\\.)[^\\s]+|\\bt\\.me/[^\\s]+""")
 
     private val ignoredWords = setOf(
         "ПРОМО", "ПРОМОКОД", "ПРОМОЧАТ", "ПРОМОИЗПОСТА", "ИЗ", "ПОСТА",
@@ -32,14 +27,11 @@ object PromoCodeParser {
         "ПОДПИСКУ В TELEGRAM", "TELEGRAM-БОТ"
     )
     private val depositConditionRegex = Regex(
-        """(?iu)(?:\+\s*)?\d{1,3}\s*%\s*(?:к\s*)?(?:депозит\w*|deposit\w*)|(?:депозит\w*|deposit\w*)[^\n]{0,40}(?:\+\s*)?\d{1,3}\s*%"""
+        """(?iu)(?:\\+\\s*)?\\d{1,3}\\s*%\\s*(?:к\\s*)?(?:депозит\\w*|deposit\\w*)|(?:депозит\\w*|deposit\\w*)[^\\n]{0,40}(?:\\+\\s*)?\\d{1,3}\\s*%"""
     )
 
-    fun isDepositRelated(message: String): Boolean =
-        depositConditionRegex.containsMatchIn(message)
-
+    fun isDepositRelated(message: String): Boolean = depositConditionRegex.containsMatchIn(message)
     fun isValidCandidate(raw: String): Boolean = normalize(raw) != null
-
     fun extract(message: String): List<String> = extract(message, emptyList())
 
     fun extract(message: String, entityTexts: List<String>): List<String> {
@@ -51,7 +43,8 @@ object PromoCodeParser {
 
         val markdownCodes = LinkedHashSet<String>()
         Regex("[\\x60]([^\\x60\\n]{1,80})[\\x60]").findAll(message).forEach { match ->
-            normalize(match.groupValues[1])?.let(markdownCodes::add)
+            val codeText = match.groupValues[1]
+            if (!urlRegex.containsMatchIn(codeText)) normalize(codeText)?.let(markdownCodes::add)
         }
         if (markdownCodes.isNotEmpty()) return markdownCodes.toList()
 
@@ -61,27 +54,25 @@ object PromoCodeParser {
             if (line.isBlank()) return@forEach
             val upper = line.uppercase(Locale.ROOT)
             if (ignoredPhrases.any { upper.contains(it) }) return@forEach
-            if (upper.contains("TELEGRAM-BOT") || upper.contains("T.ME/") || upper.contains("HTTPS://")) {
-                return@forEach
-            }
 
-            val hasPrice = priceRegex.containsMatchIn(line)
-            val hasPromoContext = promoContextRegex.containsMatchIn(line)
-            if (hasPrice || hasPromoContext) {
-                val separator = separatorRegex.findAll(line).lastOrNull()
+            // Strip URLs first: domains and usernames inside links are not promo codes.
+            val searchableLine = urlRegex.replace(line, " ")
+            if (searchableLine.isBlank()) return@forEach
+
+            if (priceRegex.containsMatchIn(searchableLine) || caseRegex.containsMatchIn(searchableLine)) {
+                val separator = separatorRegex.findAll(searchableLine).lastOrNull()
                 if (separator != null) {
-                    val suffix = line.substring(separator.range.last + 1)
-                    tokenRegex.findAll(suffix).forEach { match ->
-                        normalize(match.value)?.let(found::add)
-                    }
+                    val suffix = searchableLine.substring(separator.range.last + 1)
+                    tokenRegex.findAll(suffix).forEach { match -> normalize(match.value)?.let(found::add) }
                 }
                 return@forEach
             }
 
-            if (candidateRegex.matches(line)) {
-                val hasDigit = line.any(Char::isDigit)
-                val hasUppercase = line.any { it.isLetter() && it.isUpperCase() }
-                if (hasDigit || hasUppercase) normalize(line)?.let(found::add)
+            // Do not classify ordinary lowercase prose as a standalone code.
+            if (candidateRegex.matches(searchableLine)) {
+                val hasDigit = searchableLine.any(Char::isDigit)
+                val hasUppercase = searchableLine.any { it.isLetter() && it.isUpperCase() }
+                if (hasDigit || hasUppercase) normalize(searchableLine)?.let(found::add)
             }
         }
         return found.toList()
@@ -91,7 +82,6 @@ object PromoCodeParser {
         val candidate = raw.trim().trim { !it.isLetterOrDigit() }
         if (candidate.isEmpty() || candidate.any(Char::isWhitespace)) return null
         if (!candidateRegex.matches(candidate)) return null
-
         val normalized = candidate.uppercase(Locale.ROOT)
         if (normalized in ignoredWords) return null
         if (normalized.startsWith("ПРОМО") || normalized.contains("PROMO")) return null
