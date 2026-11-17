@@ -30,8 +30,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import ru.cs2a.helper.alarm.AlarmScheduler
-import ru.cs2a.helper.crash.CrashForegroundService
-import ru.cs2a.helper.crash.CrashState
 import ru.cs2a.helper.spam.SpamForegroundService
 import ru.cs2a.helper.update.UpdateManager
 import java.text.SimpleDateFormat
@@ -54,7 +52,6 @@ class MainActivity : AppCompatActivity() {
             "farm" to findViewById<View>(R.id.panelFarm),
             "raffles" to findViewById<View>(R.id.panelRaffles),
             "spam" to findViewById<View>(R.id.panelSpam),
-            "crash" to findViewById<View>(R.id.panelCrash),
             "status" to findViewById<View>(R.id.panelStatus),
             "promo" to findViewById<View>(R.id.panelPromo),
         )
@@ -198,7 +195,6 @@ class MainActivity : AppCompatActivity() {
         TokenStore.setBool("cashbackAuto", false)
         TokenStore.setBool("promoAuto", false)
         stopService(Intent(this, SpamForegroundService::class.java))
-        stopService(Intent(this, CrashForegroundService::class.java))
         stopService(Intent(this, PromoTelegramService::class.java))
         stopService(Intent(this, ActivityStatusService::class.java))
     }
@@ -266,14 +262,12 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.tabFarm).setOnClickListener { showTab("farm") }
         findViewById<Button>(R.id.tabRaffles).setOnClickListener { showTab("raffles") }
         findViewById<Button>(R.id.tabSpam).setOnClickListener { showTab("spam") }
-        findViewById<Button>(R.id.tabCrash).setOnClickListener { showTab("crash") }
         findViewById<Button>(R.id.tabStatus).setOnClickListener { showTab("status") }
         findViewById<Button>(R.id.tabPromo).setOnClickListener { showTab("promo") }
 
         setupFarm()
         setupRaffles()
         setupSpam()
-        setupCrash()
         setupStatus()
         setupPromo()
         refreshLoop()
@@ -558,67 +552,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ---------------- Crash auto-bet ----------------
-    private fun setupCrash() {
-        val amount = findViewById<EditText>(R.id.crashAmount)
-        val auto = findViewById<EditText>(R.id.crashAuto)
-        val rounds = findViewById<EditText>(R.id.crashRounds)
-
-        amount.setText(TokenStore.getString("crashAmount", "0.10"))
-        auto.setText(TokenStore.getString("crashAuto", "1.25"))
-        rounds.setText(TokenStore.getInt("crashRounds", 5).toString())
-
-        amount.addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) { TokenStore.setString("crashAmount", s?.toString().orEmpty()) }
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        })
-        auto.addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) { TokenStore.setString("crashAuto", s?.toString().orEmpty()) }
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        })
-        rounds.addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) { s?.toString()?.toIntOrNull()?.let { TokenStore.setInt("crashRounds", it) } }
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        })
-
-        findViewById<Button>(R.id.crashHalfBtn).setOnClickListener {
-            val value = amount.text.toString().replace(',', '.').toDoubleOrNull() ?: 0.0
-            if (value > 0.0) amount.setText(String.format(Locale.US, "%.4f", value / 2.0))
-        }
-        findViewById<Button>(R.id.crashDoubleBtn).setOnClickListener {
-            val value = amount.text.toString().replace(',', '.').toDoubleOrNull() ?: 0.0
-            if (value > 0.0) amount.setText(String.format(Locale.US, "%.4f", value * 2.0))
-        }
-
-        findViewById<Button>(R.id.crashStartBtn).setOnClickListener {
-            val bet = amount.text.toString().replace(',', '.').toDoubleOrNull()
-            val multiplier = auto.text.toString().replace(',', '.').toDoubleOrNull()
-            val count = rounds.text.toString().toIntOrNull()
-            if (bet == null || bet <= 0.0 || multiplier == null || multiplier <= 1.0 || count == null || count !in 1..500) {
-                Toast.makeText(this, "Проверьте сумму, множитель (>1) и число раундов (1–500)", Toast.LENGTH_LONG).show()
-                return@setOnClickListener
-            }
-            if (!TokenStore.isApiTokenValid()) {
-                Toast.makeText(this, "Сначала войдите на cs2a.run во вкладке «Статус»", Toast.LENGTH_LONG).show()
-                return@setOnClickListener
-            }
-            val intent = Intent(this, CrashForegroundService::class.java)
-                .setAction(CrashForegroundService.ACTION_START)
-                .putExtra(CrashForegroundService.EXTRA_AMOUNT, bet)
-                .putExtra(CrashForegroundService.EXTRA_AUTO, multiplier)
-                .putExtra(CrashForegroundService.EXTRA_ROUNDS, count)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
-            Toast.makeText(this, "Автоставки запущены · ожидание Crash", Toast.LENGTH_SHORT).show()
-        }
-        findViewById<Button>(R.id.crashStopBtn).setOnClickListener {
-            val intent = Intent(this, CrashForegroundService::class.java).setAction(CrashForegroundService.ACTION_STOP)
-            startService(intent)
-        }
-    }
-
     // ---------------- Статус ----------------
     private fun setupStatus() {
         findViewById<Button>(R.id.loginBtn).setOnClickListener { startActivity(Intent(this, LoginActivity::class.java)) }
@@ -663,15 +596,22 @@ class MainActivity : AppCompatActivity() {
     private fun refreshLoop() {
         if (!mainUiActive) return
         refreshStatus()
-        refreshLogs()
-        findViewById<TextView>(R.id.crashStatus).text = CrashState.status.value
-
-        // Promo-сервис работает в фоне, поэтому экран должен читать его актуальный статус
-        // и журнал из TokenStore/Logs, а не оставаться на стартовой надписи.
-        findViewById<TextView>(R.id.promoStatus).text =
-            TokenStore.getString("promoStatus", "Остановлено").ifBlank { "Остановлено" }
-        findViewById<TextView>(R.id.promoLog).text = Logs.render(this, "promo")
-        findViewById<TextView>(R.id.promoResultsList).text = PromoActivator.historyForCategory(selectedPromoResultsCategory)
+        val visiblePanel = panels.entries.firstOrNull { it.value.visibility == View.VISIBLE }?.key
+        when (visiblePanel) {
+            "farm" -> findViewById<TextView>(R.id.farmLog).text = Logs.render(this, "farm")
+            "raffles" -> findViewById<TextView>(R.id.rafflesLog).text = Logs.render(this, "raffles")
+            "spam" -> {
+                findViewById<TextView>(R.id.spamLog).text = Logs.render(this, "spam")
+                findViewById<TextView>(R.id.spamTplStatus).text =
+                    if (TokenStore.getBool("spamHasTemplate")) "Формат записан ✅" else "Формат пока не записан — нажмите «Обучить формат»"
+            }
+            "promo" -> {
+                findViewById<TextView>(R.id.promoStatus).text =
+                    TokenStore.getString("promoStatus", "Остановлено").ifBlank { "Остановлено" }
+                findViewById<TextView>(R.id.promoLog).text = Logs.render(this, "promo")
+                findViewById<TextView>(R.id.promoResultsList).text = PromoActivator.historyForCategory(selectedPromoResultsCategory)
+            }
+        }
 
         ActivityStatusService.sync(this)
         handler.postDelayed({ refreshLoop() }, 3000)

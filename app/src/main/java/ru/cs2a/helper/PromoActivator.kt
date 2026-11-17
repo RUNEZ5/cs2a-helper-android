@@ -41,6 +41,8 @@ object PromoActivator {
     private val retryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private const val MAX_TIMEOUT_RETRIES = 2
     private val pending = ConcurrentHashMap.newKeySet<String>()
+    private val activatedCodesByAccount = HashMap<String, MutableSet<String>>()
+    private val recentHistoryByAccount = HashMap<String, MutableMap<String, ArrayDeque<JSONObject>>>()
     @Volatile private var lastDispatchAt = 0L
     @Volatile private var blockedUntil = 0L
     private fun minRequestIntervalMs(): Long = TokenStore.getInt("promoActivationIntervalSec", 1).coerceIn(1, 86400) * 1_000L
@@ -76,20 +78,6 @@ object PromoActivator {
         return file
     }
 
-    @Synchronized
-    private fun readHistory(jwt: String): List<JSONObject> {
-        val file = historyFile(jwt)
-        if (file == null) {
-            val legacy = try { JSONArray(TokenStore.getString(historyKey(jwt), "[]")) } catch (_: Exception) { JSONArray() }
-            return (0 until legacy.length()).mapNotNull { legacy.optJSONObject(it) }
-        }
-        if (!file.exists()) return emptyList()
-        val items = ArrayList<JSONObject>()
-        file.forEachLine(Charsets.UTF_8) { line ->
-            if (line.isNotBlank()) try { items.add(JSONObject(line)) } catch (_: Exception) { }
-        }
-        return items
-    }
 
     @Synchronized
     private fun appendHistory(jwt: String, item: JSONObject) {
@@ -103,6 +91,16 @@ object PromoActivator {
         FileOutputStream(file, true).bufferedWriter(Charsets.UTF_8).use { writer ->
             writer.append(item.toString()).append('\n')
         }
+        val accountKey = historyKey(jwt)
+        val group = resultCategory(item.optBoolean("activated", false), item.optString("message"))
+        recentHistoryByAccount[accountKey]?.let { byCategory ->
+            val queue = byCategory.getOrPut(group) { ArrayDeque() }
+            if (queue.size == 12) queue.removeFirst()
+            queue.addLast(item)
+        }
+        if (item.optBoolean("activated", false)) {
+            activatedCodesByAccount.getOrPut(accountKey) { HashSet() }.add(item.optString("code"))
+        }
     }
 
     @Synchronized
@@ -112,14 +110,28 @@ object PromoActivator {
         if (file != null) file.writeText("", Charsets.UTF_8)
         TokenStore.setString(historyKey(jwt), "")
         TokenStore.setBool(historyMigrationKey(jwt), true)
+        activatedCodesByAccount.remove(historyKey(jwt))
+        recentHistoryByAccount.remove(historyKey(jwt))
         return true
     }
 
+    @Synchronized
     fun alreadyProcessed(code: String): Boolean {
         val jwt = TokenStore.jwt() ?: return false
-        return readHistory(jwt).any { item ->
-            item.optString("code") == code && item.optBoolean("activated", false)
+        val accountKey = historyKey(jwt)
+        val known = activatedCodesByAccount[accountKey] ?: run {
+            val codes = HashSet<String>()
+            val file = historyFile(jwt)
+            if (file != null && file.exists()) file.forEachLine(Charsets.UTF_8) { line ->
+                if (line.isNotBlank()) try {
+                    val item = JSONObject(line)
+                    if (item.optBoolean("activated", false)) codes.add(item.optString("code"))
+                } catch (_: Exception) { }
+            }
+            activatedCodesByAccount[accountKey] = codes
+            codes
         }
+        return code in known
     }
 
     suspend fun enqueue(code: String, mirror: String, onResult: (Result) -> Unit): Result = withContext(Dispatchers.IO) {
@@ -224,21 +236,46 @@ object PromoActivator {
     }
 
 
+    @Synchronized
+    private fun readRecentHistory(jwt: String, category: String, limit: Int = 12): List<JSONObject> {
+        val accountKey = historyKey(jwt)
+        val cached = recentHistoryByAccount[accountKey]
+        if (cached != null) return cached[category]?.toList().orEmpty()
+
+        val byCategory = HashMap<String, ArrayDeque<JSONObject>>()
+        fun add(item: JSONObject) {
+            val group = resultCategory(item.optBoolean("activated", false), item.optString("message"))
+            val queue = byCategory.getOrPut(group) { ArrayDeque() }
+            if (queue.size == limit) queue.removeFirst()
+            queue.addLast(item)
+        }
+        val file = historyFile(jwt)
+        if (file == null) {
+            val legacy = try { JSONArray(TokenStore.getString(accountKey, "[]")) } catch (_: Exception) { JSONArray() }
+            for (i in 0 until legacy.length()) legacy.optJSONObject(i)?.let(::add)
+        } else if (file.exists()) {
+            file.forEachLine(Charsets.UTF_8) { line ->
+                if (line.isNotBlank()) try { add(JSONObject(line)) } catch (_: Exception) { }
+            }
+        }
+        recentHistoryByAccount[accountKey] = byCategory
+        return byCategory[category]?.toList().orEmpty()
+    }
+
     // Result windows use stable reason groups; old history entries are classified on read too.
     fun historyForCategory(category: String): String {
         val jwt = TokenStore.jwt() ?: return "Сначала войдите в аккаунт на выбранном зеркале."
-        val items = readHistory(jwt).filter { item ->
-            val group = resultCategory(item.optBoolean("activated", false), item.optString("message"))
-            category == "all" || category == group
-        }
+        val items = if (category == "all") {
+            val all = readRecentHistory(jwt, "activated") + readRecentHistory(jwt, "deposit") + readRecentHistory(jwt, "used") + readRecentHistory(jwt, "invalid") + readRecentHistory(jwt, "other")
+            all.sortedBy { it.optLong("time") }.takeLast(12)
+        } else readRecentHistory(jwt, category)
         if (items.isEmpty()) return "Пока нет результатов в этой категории."
         val fmt = SimpleDateFormat("dd.MM HH:mm:ss", Locale.getDefault())
-        return items.asReversed().joinToString("\n\n") { item ->
+        return items.asReversed().joinToString("\n") { item ->
             val time = fmt.format(Date(item.optLong("time")))
             val code = item.optString("code")
-            val message = item.optString("message")
-            val mirror = item.optString("mirror")
-            "$time  ·  $code\n$message\nЗеркало: $mirror"
+            val message = item.optString("message").replace('\n', ' ').take(72)
+            "$time  ·  $code  ·  $message"
         }
     }
 

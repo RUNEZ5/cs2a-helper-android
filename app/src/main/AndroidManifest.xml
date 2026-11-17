@@ -43,11 +43,6 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
-        <service
-            android:name=".crash.CrashForegroundService"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
-
         <service android:name=".PromoTelegramService" android:exported="false" android:foregroundServiceType="dataSync" />
         <service android:name=".ActivityStatusService" android:exported="false" android:foregroundServiceType="dataSync" />
 
