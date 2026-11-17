@@ -4,7 +4,7 @@ import java.util.Locale
 
 /** Conservative parser: explicit code formatting or a price/case marker is preferred. */
 object PromoCodeParser {
-    private val tokenRegex = Regex("""(?<![\p{L}\p{N}])[\p{L}\p{N}]{4,40}(?![\p{L}\p{N}])""")
+    private val tokenRegex = Regex("""(?<![\p{L}\p{N}])[\p{L}\p{N}]{3,40}(?![\p{L}\p{N}])""")
     private val candidateRegex = Regex("""[\p{L}\p{N}]{4,40}""")
     private val numericRegex = Regex("""\d{8,32}""")
     private val priceRegex = Regex(
@@ -63,7 +63,7 @@ object PromoCodeParser {
                 val separator = separatorRegex.findAll(searchableLine).lastOrNull()
                 if (separator != null) {
                     val suffix = searchableLine.substring(separator.range.last + 1)
-                    tokenRegex.findAll(suffix).forEach { match -> normalize(match.value)?.let(found::add) }
+                    tokenRegex.findAll(suffix).forEach { match -> normalize(match.value, allowThreeChar = true)?.let(found::add) }
                 }
                 return@forEach
             }
@@ -78,10 +78,11 @@ object PromoCodeParser {
         return found.toList()
     }
 
-    private fun normalize(raw: String): String? {
+    private fun normalize(raw: String, allowThreeChar: Boolean = false): String? {
         val candidate = raw.trim().trim { !it.isLetterOrDigit() }
         if (candidate.isEmpty() || candidate.any(Char::isWhitespace)) return null
-        if (!candidateRegex.matches(candidate)) return null
+        val validShape = if (allowThreeChar) tokenRegex.matches(candidate) else candidateRegex.matches(candidate)
+        if (!validShape) return null
         val normalized = candidate.uppercase(Locale.ROOT)
         if (normalized in ignoredWords) return null
         if (normalized.startsWith("ПРОМО") || normalized.contains("PROMO")) return null
