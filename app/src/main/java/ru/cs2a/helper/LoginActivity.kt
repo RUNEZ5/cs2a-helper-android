@@ -6,11 +6,14 @@ import android.os.Handler
 import android.os.Looper
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import android.webkit.CookieManager
+import android.webkit.WebStorage
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -46,7 +49,41 @@ class LoginActivity : AppCompatActivity() {
         webView.loadUrl(ORIGIN)
 
         findViewById<Button>(R.id.doneBtn).setOnClickListener { finish() }
+        findViewById<Button>(R.id.logoutBrowserBtn).setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Выйти из аккаунта?")
+                .setMessage("Будут удалены cookies и данные входа встроенного браузера. Привязка лицензии к текущему аккаунту CSGORun останется.")
+                .setNegativeButton("Отмена", null)
+                .setPositiveButton("Выйти") { _, _ -> logoutFromBrowser() }
+                .show()
+        }
         pollToken()
+    }
+
+    private fun logoutFromBrowser() {
+        polling = false
+        accountSyncAttempted = true
+        webView.evaluateJavascript(
+            "(function(){try{localStorage.clear();sessionStorage.clear();}catch(e){} return true;})();"
+        ) {
+            CookieManager.getInstance().removeAllCookies {
+                CookieManager.getInstance().flush()
+                WebStorage.getInstance().deleteAllData()
+                TokenStore.clearJwt()
+                webView.stopLoading()
+                webView.clearCache(true)
+                webView.clearHistory()
+                webView.clearFormData()
+                webView.loadUrl(ORIGIN)
+                polling = true
+                handler.postDelayed({ pollToken() }, 1000)
+                AlertDialog.Builder(this)
+                    .setTitle("Вы вышли из аккаунта")
+                    .setMessage("Ключ уже привязан к одному аккаунту CSGORun. Выход не снимает эту привязку. Для дальнейших указаний свяжитесь с @pashkanka.")
+                    .setPositiveButton("Понятно", null)
+                    .show()
+            }
+        }
     }
 
     private fun jsResultToString(raw: String?): String? {
@@ -58,6 +95,7 @@ class LoginActivity : AppCompatActivity() {
         webView.evaluateJavascript("(function(){try{return localStorage.getItem('auth-token')||'';}catch(e){return '';}})();") { raw ->
             val token = jsResultToString(raw)?.takeIf { it.isNotBlank() }
             if (token != null && token != TokenStore.jwt()) {
+                accountSyncAttempted = false
                 TokenStore.saveJwt(token)
                 if (TokenStore.isApiTokenValid()) Toast.makeText(this, "Токен получен ✅", Toast.LENGTH_SHORT).show()
             }
@@ -99,6 +137,8 @@ class LoginActivity : AppCompatActivity() {
                         try {
                             val token = JSONObject(json).optString("token")
                             if (token.isNotBlank()) {
+                                val tokenChanged = token != TokenStore.jwt()
+                                if (tokenChanged) accountSyncAttempted = false
                                 TokenStore.saveJwt(token)
                                 if (!accountSyncAttempted) {
                                     accountSyncAttempted = true

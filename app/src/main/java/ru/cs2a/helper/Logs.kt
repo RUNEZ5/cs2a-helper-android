@@ -3,51 +3,66 @@ package ru.cs2a.helper
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// Общий журнал (аналог background.js log()/L.get('logs')) — хранится в обычных prefs как JSON-массив,
-// общий для вкладок farm / raffles / spam.
+// Append-only журнал в JSONL: история не обрезается и не раздувает SharedPreferences.
 object Logs {
     private const val KEY = "logs"
-    private const val MAX = 200
+    private const val MIGRATED_KEY = "logsMigratedToFile"
+    private const val FILE_NAME = "logs.jsonl"
     private val fmt = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
     @Synchronized
+    private fun ensureMigrated(ctx: Context) {
+        if (TokenStore.getBool(MIGRATED_KEY)) return
+        val legacy = try { JSONArray(TokenStore.getString(KEY, "[]")) } catch (_: Exception) { JSONArray() }
+        if (legacy.length() > 0) {
+            FileOutputStream(File(ctx.filesDir, FILE_NAME), true).bufferedWriter(Charsets.UTF_8).use { writer ->
+                for (i in 0 until legacy.length()) {
+                    val item = legacy.optJSONObject(i) ?: continue
+                    writer.append(item.toString()).append('\n')
+                }
+            }
+        }
+        TokenStore.setString(KEY, "")
+        TokenStore.setBool(MIGRATED_KEY, true)
+    }
+
+    @Synchronized
     fun add(ctx: Context, tab: String, text: String, level: String = "") {
-        val arr = readAll(ctx)
-        val o = JSONObject()
-        o.put("t", System.currentTimeMillis())
-        o.put("tab", tab)
-        o.put("text", text)
-        o.put("level", level)
-        arr.put(o)
-        while (arr.length() > MAX) arr.remove(0)
-        TokenStore.setString(KEY, arr.toString())
+        ensureMigrated(ctx)
+        val item = JSONObject()
+            .put("t", System.currentTimeMillis())
+            .put("tab", tab)
+            .put("text", text)
+            .put("level", level)
+        FileOutputStream(File(ctx.filesDir, FILE_NAME), true).bufferedWriter(Charsets.UTF_8).use { writer ->
+            writer.append(item.toString()).append('\n')
+        }
     }
 
-    private fun readAll(ctx: Context): JSONArray {
-        val s = TokenStore.getString(KEY, "[]")
-        return try { JSONArray(s) } catch (e: Exception) { JSONArray() }
+    @Synchronized
+    private fun readAll(ctx: Context): List<JSONObject> {
+        ensureMigrated(ctx)
+        val file = File(ctx.filesDir, FILE_NAME)
+        if (!file.exists()) return emptyList()
+        val result = ArrayList<JSONObject>()
+        file.forEachLine(Charsets.UTF_8) { line ->
+            if (line.isNotBlank()) {
+                try { result.add(JSONObject(line)) } catch (_: Exception) { }
+            }
+        }
+        return result
     }
 
-    fun render(ctx: Context, tab: String, maxLines: Int = 60): String {
-        val arr = readAll(ctx)
-        val sb = StringBuilder()
-        val items = ArrayList<JSONObject>()
-        for (i in 0 until arr.length()) {
-            val o = arr.getJSONObject(i)
-            if (o.optString("tab") == tab) items.add(o)
+    fun render(ctx: Context, tab: String): String {
+        val items = readAll(ctx).filter { it.optString("tab") == tab }
+        return items.asReversed().joinToString("\n") { item ->
+            fmt.format(Date(item.optLong("t"))) + "  " + item.optString("text")
         }
-        val from = maxOf(0, items.size - maxLines)
-        for (i in items.size - 1 downTo from) {
-            val o = items[i]
-            sb.append(fmt.format(Date(o.optLong("t"))))
-            sb.append("  ")
-            sb.append(o.optString("text"))
-            sb.append("\n")
-        }
-        return sb.toString().trim()
     }
 }

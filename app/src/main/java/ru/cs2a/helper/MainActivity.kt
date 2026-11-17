@@ -670,7 +670,7 @@ class MainActivity : AppCompatActivity() {
         // и журнал из TokenStore/Logs, а не оставаться на стартовой надписи.
         findViewById<TextView>(R.id.promoStatus).text =
             TokenStore.getString("promoStatus", "Остановлено").ifBlank { "Остановлено" }
-        findViewById<TextView>(R.id.promoLog).text = Logs.render(this, "promo", 60)
+        findViewById<TextView>(R.id.promoLog).text = Logs.render(this, "promo")
         findViewById<TextView>(R.id.promoResultsList).text = PromoActivator.historyForCategory(selectedPromoResultsCategory)
 
         ActivityStatusService.sync(this)
