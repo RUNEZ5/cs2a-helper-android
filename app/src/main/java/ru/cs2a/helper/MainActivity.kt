@@ -491,23 +491,75 @@ class MainActivity : AppCompatActivity() {
     // ---------------- Розыгрыши ----------------
     private fun setupRaffles() {
         val list = findViewById<LinearLayout>(R.id.rafflesList)
-        for (item in LOTTERIES) {
-            val row = LinearLayout(this)
-            row.orientation = LinearLayout.HORIZONTAL
-            row.setPadding(0, 8, 0, 8)
-            val tv = TextView(this)
-            tv.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            tv.text = "${item.name}\n${item.price} · ${periodLabel(item.period)}"
-            tv.setTextColor(resources.getColor(R.color.textDim, theme))
-            tv.textSize = 12f
-            val btn = Button(this)
-            btn.text = "Участвовать"
-            btn.setOnClickListener {
-                lifecycleScope.launch { Api.joinLottery(this@MainActivity, item); refreshLogs() }
+        list.removeAllViews()
+
+        val periodGroups = listOf(
+            "hour" to "За час",
+            "day" to "За день",
+            "week" to "За неделю",
+            "month" to "За месяц",
+            "old" to "Для олдов"
+        )
+
+        for ((period, title) in periodGroups) {
+            val items = LOTTERIES.filter {
+                when (period) {
+                    "old" -> it.period != "hour" && it.period != "day" &&
+                        it.period != "week" && it.period != "month"
+                    else -> it.period == period
+                }
             }
-            row.addView(tv)
-            row.addView(btn)
-            list.addView(row)
+            if (items.isEmpty()) continue
+
+            val section = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(14, 12, 14, 8)
+                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.panel_surface)
+            }
+
+            val heading = TextView(this).apply {
+                text = title
+                textSize = 15f
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.accent))
+                setPadding(2, 0, 2, 8)
+            }
+            section.addView(heading)
+
+            for (item in items) {
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(2, 7, 2, 7)
+                }
+
+                val info = TextView(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                    text = "${item.name}\\n${item.price} · ${periodLabel(item.period)}"
+                    setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text))
+                    textSize = 13f
+                }
+
+                val btn = Button(this).apply {
+                    text = "Участвовать"
+                    setOnClickListener {
+                        lifecycleScope.launch {
+                            Api.joinLottery(this@MainActivity, item)
+                            refreshLogs()
+                        }
+                    }
+                }
+
+                row.addView(info)
+                row.addView(btn)
+                section.addView(row)
+            }
+
+            val sectionParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = (10 * resources.displayMetrics.density).toInt() }
+            list.addView(section, sectionParams)
         }
 
         val autoSwitch = findViewById<Switch>(R.id.rafflesAutoSwitch)
@@ -516,9 +568,7 @@ class MainActivity : AppCompatActivity() {
             TokenStore.setBool("rafflesAuto", on)
             Logs.add(this, "raffles", if (on) "Автоучастие включено" else "Автоучастие выключено", "")
             if (on) {
-                // Пробуем сразу для всех розыгрышей (как кнопка «Участвовать»), а не ждём
-                // целый цикл до первого будильника — иначе выглядит так, будто тумблер
-                // ничего не делает.
+                // Сразу пробуем участвовать во всех розыгрышах.
                 lifecycleScope.launch {
                     for (item in LOTTERIES) {
                         Api.joinLottery(this@MainActivity, item)
@@ -531,12 +581,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
-    private fun periodLabel(p: String) = when (p) {
-        "hour" -> "каждый час"; "day" -> "каждый день"; "week" -> "каждую неделю"
-        "month" -> "каждый месяц"; else -> "для олдов"
-    }
-
     // ---------------- Спам ----------------
     private fun setupSpam() {
         val textEdit = findViewById<EditText>(R.id.spamText)
