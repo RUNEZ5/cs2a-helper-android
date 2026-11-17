@@ -71,12 +71,13 @@ object Logs {
 
     @Synchronized
     fun exportArchive(ctx: Context, appVersion: String): File {
+        ensureMigrated(ctx)
         val source = File(ctx.filesDir, FILE_NAME)
         val dir = File(ctx.cacheDir, "log-export").apply { mkdirs() }
         val archive = File(dir, "cs2a-diagnostics-${System.currentTimeMillis()}.zip")
-        val jwtPattern = Regex("""eyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}""")
-        val bearerPattern = Regex("""(?i)(Bearer\\s+)[A-Za-z0-9._~+/-]+=*""")
-        val secretPattern = Regex("""(?i)("(?:api[_-]?hash|authorization|access[_-]?token|refresh[_-]?token|jwt)"\\s*:\\s*")[^"]*(")""")
+        val jwtPattern = Regex("""eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}""")
+        val bearerPattern = Regex("""(?i)(Bearer\s+)[A-Za-z0-9._~+/-]+=*""")
+        val secretPattern = Regex("""(?i)("(?:api[_-]?hash|authorization|access[_-]?token|refresh[_-]?token|jwt)"\s*:\s*")[^"]*(")""")
         java.util.zip.ZipOutputStream(FileOutputStream(archive).buffered()).use { zip ->
             zip.putNextEntry(java.util.zip.ZipEntry("logs.jsonl"))
             if (source.exists()) {
