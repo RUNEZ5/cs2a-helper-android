@@ -25,7 +25,7 @@
             <View
                 android:layout_width="4dp"
                 android:layout_height="28dp"
-                android:background="@drawable/panel_surface" />
+                android:background="@color/accent" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -55,7 +55,7 @@
                 android:id="@+id/headerStatus"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="● ONLINE"
+                android:text="CS2A"
                 android:textColor="@color/ok"
                 android:textSize="10sp"
                 android:textStyle="bold"
