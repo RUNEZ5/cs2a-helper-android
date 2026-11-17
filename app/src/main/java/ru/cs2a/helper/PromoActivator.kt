@@ -66,7 +66,7 @@ object PromoActivator {
                 FileOutputStream(file, true).bufferedWriter(Charsets.UTF_8).use { writer ->
                     for (i in 0 until legacy.length()) {
                         val item = legacy.optJSONObject(i) ?: continue
-                        writer.append(item.toString()).append('\\n')
+                        writer.append(item.toString()).append('\n')
                     }
                 }
             }
@@ -101,7 +101,7 @@ object PromoActivator {
             return
         }
         FileOutputStream(file, true).bufferedWriter(Charsets.UTF_8).use { writer ->
-            writer.append(item.toString()).append('\\n')
+            writer.append(item.toString()).append('\n')
         }
     }
 
