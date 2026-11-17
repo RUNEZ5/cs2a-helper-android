@@ -41,6 +41,8 @@ object PromoActivator {
     private val retryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private const val MAX_TIMEOUT_RETRIES = 2
     private val pending = ConcurrentHashMap.newKeySet<String>()
+    private val activatedCodesByAccount = HashMap<String, MutableSet<String>>()
+    private val recentHistoryByAccount = HashMap<String, ArrayDeque<JSONObject>>()
     @Volatile private var lastDispatchAt = 0L
     @Volatile private var blockedUntil = 0L
     private fun minRequestIntervalMs(): Long = TokenStore.getInt("promoActivationIntervalSec", 1).coerceIn(1, 86400) * 1_000L
@@ -103,6 +105,14 @@ object PromoActivator {
         FileOutputStream(file, true).bufferedWriter(Charsets.UTF_8).use { writer ->
             writer.append(item.toString()).append('\n')
         }
+        val accountKey = historyKey(jwt)
+        recentHistoryByAccount[accountKey]?.let { queue ->
+            if (queue.size == 12) queue.removeFirst()
+            queue.addLast(item)
+        }
+        if (item.optBoolean("activated", false)) {
+            activatedCodesByAccount.getOrPut(accountKey) { HashSet() }.add(item.optString("code"))
+        }
     }
 
     @Synchronized
@@ -112,14 +122,28 @@ object PromoActivator {
         if (file != null) file.writeText("", Charsets.UTF_8)
         TokenStore.setString(historyKey(jwt), "")
         TokenStore.setBool(historyMigrationKey(jwt), true)
+        activatedCodesByAccount.remove(historyKey(jwt))
+        recentHistoryByAccount.remove(historyKey(jwt))
         return true
     }
 
+    @Synchronized
     fun alreadyProcessed(code: String): Boolean {
         val jwt = TokenStore.jwt() ?: return false
-        return readHistory(jwt).any { item ->
-            item.optString("code") == code && item.optBoolean("activated", false)
+        val accountKey = historyKey(jwt)
+        val known = activatedCodesByAccount[accountKey] ?: run {
+            val codes = HashSet<String>()
+            val file = historyFile(jwt)
+            if (file != null && file.exists()) file.forEachLine(Charsets.UTF_8) { line ->
+                if (line.isNotBlank()) try {
+                    val item = JSONObject(line)
+                    if (item.optBoolean("activated", false)) codes.add(item.optString("code"))
+                } catch (_: Exception) { }
+            }
+            activatedCodesByAccount[accountKey] = codes
+            codes
         }
+        return code in known
     }
 
     suspend fun enqueue(code: String, mirror: String, onResult: (Result) -> Unit): Result = withContext(Dispatchers.IO) {
@@ -224,20 +248,29 @@ object PromoActivator {
     }
 
 
+    @Synchronized
     private fun readRecentHistory(jwt: String, limit: Int = 12): List<JSONObject> {
+        val accountKey = historyKey(jwt)
+        recentHistoryByAccount[accountKey]?.let { return it.toList() }
         val file = historyFile(jwt)
-        if (file == null) {
-            val legacy = try { JSONArray(TokenStore.getString(historyKey(jwt), "[]")) } catch (_: Exception) { JSONArray() }
-            return (maxOf(0, legacy.length() - limit) until legacy.length()).mapNotNull { legacy.optJSONObject(it) }
-        }
-        if (!file.exists()) return emptyList()
         val tail = ArrayDeque<JSONObject>()
-        file.forEachLine(Charsets.UTF_8) { line ->
-            if (line.isNotBlank()) try {
-                if (tail.size == limit) tail.removeFirst()
-                tail.addLast(JSONObject(line))
-            } catch (_: Exception) { }
+        if (file == null) {
+            val legacy = try { JSONArray(TokenStore.getString(accountKey, "[]")) } catch (_: Exception) { JSONArray() }
+            for (i in maxOf(0, legacy.length() - limit) until legacy.length()) {
+                legacy.optJSONObject(i)?.let {
+                    if (tail.size == limit) tail.removeFirst()
+                    tail.addLast(it)
+                }
+            }
+        } else if (file.exists()) {
+            file.forEachLine(Charsets.UTF_8) { line ->
+                if (line.isNotBlank()) try {
+                    if (tail.size == limit) tail.removeFirst()
+                    tail.addLast(JSONObject(line))
+                } catch (_: Exception) { }
+            }
         }
+        recentHistoryByAccount[accountKey] = tail
         return tail.toList()
     }
 
