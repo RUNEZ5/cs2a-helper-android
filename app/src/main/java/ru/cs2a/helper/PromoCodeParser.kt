@@ -50,7 +50,7 @@ object PromoCodeParser {
         if (explicit.isNotEmpty()) return explicit.toList()
 
         val markdownCodes = LinkedHashSet<String>()
-        Regex("\`([^\`\n]{1,80})\`").findAll(message).forEach { match ->
+        Regex("[\\x60]([^\\x60\\n]{1,80})[\\x60]").findAll(message).forEach { match ->
             normalize(match.groupValues[1])?.let(markdownCodes::add)
         }
         if (markdownCodes.isNotEmpty()) return markdownCodes.toList()
