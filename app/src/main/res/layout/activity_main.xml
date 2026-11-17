@@ -100,6 +100,31 @@
             <include layout="@layout/panel_spam" android:id="@+id/panelSpam" />
             <include layout="@layout/panel_promo" android:id="@+id/panelPromo" />
             <include layout="@layout/panel_status" android:id="@+id/panelStatus" />
+            <LinearLayout
+                android:id="@+id/panelAbout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:background="@drawable/panel_surface"
+                android:padding="16dp">
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="это я"
+                    android:textColor="@color/text"
+                    android:textStyle="bold"
+                    android:textSize="20sp"
+                    android:gravity="center"
+                    android:layout_marginBottom="14dp" />
+                <ImageView
+                    android:id="@+id/developerPhoto"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitCenter"
+                    android:contentDescription="Фото разработчика" />
+            </LinearLayout>
         </FrameLayout>
     </androidx.core.widget.NestedScrollView>
 
@@ -123,5 +148,6 @@
         <Button android:id="@+id/tabSpam" style="@style/TabBtn" android:text="💬\nСпам" />
         <Button android:id="@+id/tabPromo" style="@style/TabBtn" android:text="🎁\nПромо" />
         <Button android:id="@+id/tabStatus" style="@style/TabBtn" android:text="⚙\nСтатус" />
+        <Button android:id="@+id/tabAbout" style="@style/TabBtn" android:text="👤\nАвтор" />
     </LinearLayout>
 </LinearLayout>
