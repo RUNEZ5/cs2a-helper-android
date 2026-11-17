@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   build:
@@ -46,3 +47,58 @@ jobs:
             --notes "Автосборка из коммита ${{ github.sha }}."
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Announce successful release in Telegram channel
+        if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: "@runchikist"
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          RELEASE_URL: https://github.com/${{ github.repository }}/releases/tag/v${{ github.run_number }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
+            echo "::notice::Telegram announcement skipped: TELEGRAM_BOT_TOKEN secret is not configured."
+            exit 0
+          fi
+
+          PR_JSON="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq '.[0] // {} | {title: (.title // ""), body: (.body // ""), url: (.html_url // "")}')"
+          export PR_JSON
+          python3 - <<'PY' > telegram-message.html
+          import html, json, os
+          pr = json.loads(os.environ.get("PR_JSON", "{}") or "{}")
+          title = pr.get("title") or f"Обновление build {os.environ['BUILD_NUMBER']}"
+          body = pr.get("body") or os.environ.get("COMMIT_MESSAGE", "").splitlines()[0] or "Исправления и улучшения приложения."
+          body = body.strip()
+          if len(body) > 2500:
+              body = body[:2490].rsplit(" ", 1)[0] + "…"
+          release = os.environ["RELEASE_URL"]
+          pr_url = pr.get("url")
+          message = (
+              "🚀 <b>Вышло новое обновление CS2A Helper!</b>\n\n"
+              f"<b>Сборка:</b> {html.escape(os.environ['BUILD_NUMBER'])}\n"
+              f"<b>{html.escape(title)}</b>\n\n"
+              f"{html.escape(body)}\n\n"
+              f'📦 <a href="{html.escape(release, quote=True)}">Скачать APK</a>'
+          )
+          if pr_url:
+              message += f'\n📝 <a href="{html.escape(pr_url, quote=True)}">Подробнее об изменениях</a>'
+          print(message)
+          PY
+
+          RESPONSE="$(curl --fail-with-body --silent --show-error \
+            -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -H "Content-Type: application/json" \
+            --data-binary @- <<JSON
+          {
+            "chat_id": "$TELEGRAM_CHAT_ID",
+            "text": $(python3 -c 'import json; print(json.dumps(open("telegram-message.html", encoding="utf-8").read()))'),
+            "parse_mode": "HTML",
+            "disable_web_page_preview": true
+          }
+          JSON
+          )"
+          echo "$RESPONSE" | python3 -c 'import json,sys; r=json.load(sys.stdin); print("Telegram message_id:", r.get("result", {}).get("message_id", "unknown")) if r.get("ok") else sys.exit("Telegram API error: " + str(r.get("description", "unknown error")))'
