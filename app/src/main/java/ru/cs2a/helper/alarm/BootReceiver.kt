@@ -15,7 +15,6 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         TokenStore.init(context)
         if (TokenStore.getBool("farmAuto")) AlarmScheduler.scheduleFarm(context)
-        if (TokenStore.getBool("cashbackAuto")) AlarmScheduler.scheduleCashback(context)
         if (TokenStore.getBool("rafflesAuto")) {
             for (item in LOTTERIES) AlarmScheduler.scheduleLottery(context, item.id, item.cycleMin)
         }
