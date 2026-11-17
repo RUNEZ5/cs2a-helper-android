@@ -18,6 +18,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
@@ -51,20 +53,73 @@ object PromoActivator {
         return "promoHistory_$hash"
     }
 
+    private fun historyMigrationKey(jwt: String) = historyKey(jwt) + "_migrated"
+
+    @Synchronized
+    private fun historyFile(jwt: String): File? {
+        val context = TokenStore.appContext() ?: return null
+        val hash = historyKey(jwt).removePrefix("promoHistory_")
+        val file = File(context.filesDir, "promo_history_$hash.jsonl")
+        if (!TokenStore.getBool(historyMigrationKey(jwt))) {
+            val legacy = try { JSONArray(TokenStore.getString(historyKey(jwt), "[]")) } catch (_: Exception) { JSONArray() }
+            if (legacy.length() > 0) {
+                FileOutputStream(file, true).bufferedWriter(Charsets.UTF_8).use { writer ->
+                    for (i in 0 until legacy.length()) {
+                        val item = legacy.optJSONObject(i) ?: continue
+                        writer.append(item.toString()).append('\\n')
+                    }
+                }
+            }
+            TokenStore.setString(historyKey(jwt), "")
+            TokenStore.setBool(historyMigrationKey(jwt), true)
+        }
+        return file
+    }
+
+    @Synchronized
+    private fun readHistory(jwt: String): List<JSONObject> {
+        val file = historyFile(jwt)
+        if (file == null) {
+            val legacy = try { JSONArray(TokenStore.getString(historyKey(jwt), "[]")) } catch (_: Exception) { JSONArray() }
+            return (0 until legacy.length()).mapNotNull { legacy.optJSONObject(it) }
+        }
+        if (!file.exists()) return emptyList()
+        val items = ArrayList<JSONObject>()
+        file.forEachLine(Charsets.UTF_8) { line ->
+            if (line.isNotBlank()) try { items.add(JSONObject(line)) } catch (_: Exception) { }
+        }
+        return items
+    }
+
+    @Synchronized
+    private fun appendHistory(jwt: String, item: JSONObject) {
+        val file = historyFile(jwt)
+        if (file == null) {
+            val legacy = try { JSONArray(TokenStore.getString(historyKey(jwt), "[]")) } catch (_: Exception) { JSONArray() }
+            legacy.put(item)
+            TokenStore.setString(historyKey(jwt), legacy.toString())
+            return
+        }
+        FileOutputStream(file, true).bufferedWriter(Charsets.UTF_8).use { writer ->
+            writer.append(item.toString()).append('\\n')
+        }
+    }
+
+    @Synchronized
     fun clearCurrentAccountHistory(): Boolean {
         val jwt = TokenStore.jwt() ?: return false
-        TokenStore.setString(historyKey(jwt), "[]")
+        val file = historyFile(jwt)
+        if (file != null) file.writeText("", Charsets.UTF_8)
+        TokenStore.setString(historyKey(jwt), "")
+        TokenStore.setBool(historyMigrationKey(jwt), true)
         return true
     }
 
     fun alreadyProcessed(code: String): Boolean {
         val jwt = TokenStore.jwt() ?: return false
-        val history = try { JSONArray(TokenStore.getString(historyKey(jwt), "[]")) } catch (_: Exception) { JSONArray() }
-        for (i in 0 until history.length()) {
-            val item = history.optJSONObject(i) ?: continue
-            if (item.optString("code") == code && item.optBoolean("activated", false)) return true
+        return readHistory(jwt).any { item ->
+            item.optString("code") == code && item.optBoolean("activated", false)
         }
-        return false
     }
 
     suspend fun enqueue(code: String, mirror: String, onResult: (Result) -> Unit): Result = withContext(Dispatchers.IO) {
@@ -172,12 +227,9 @@ object PromoActivator {
     // Result windows use stable reason groups; old history entries are classified on read too.
     fun historyForCategory(category: String): String {
         val jwt = TokenStore.jwt() ?: return "Сначала войдите в аккаунт на выбранном зеркале."
-        val history = try { JSONArray(TokenStore.getString(historyKey(jwt), "[]")) } catch (_: Exception) { JSONArray() }
-        val items = ArrayList<JSONObject>()
-        for (i in 0 until history.length()) {
-            val item = history.optJSONObject(i) ?: continue
+        val items = readHistory(jwt).filter { item ->
             val group = resultCategory(item.optBoolean("activated", false), item.optString("message"))
-            if (category == "all" || category == group) items.add(item)
+            category == "all" || category == group
         }
         if (items.isEmpty()) return "Пока нет результатов в этой категории."
         val fmt = SimpleDateFormat("dd.MM HH:mm:ss", Locale.getDefault())
@@ -207,10 +259,7 @@ object PromoActivator {
     }
 
     private fun remember(code: String, mirror: String, activated: Boolean, message: String, jwt: String) {
-        val key = historyKey(jwt)
-        val history = try { JSONArray(TokenStore.getString(key, "[]")) } catch (_: Exception) { JSONArray() }
-        history.put(JSONObject().put("code", code).put("mirror", mirror)
+        appendHistory(jwt, JSONObject().put("code", code).put("mirror", mirror)
             .put("activated", activated).put("message", message).put("time", System.currentTimeMillis()))
-        TokenStore.setString(key, history.toString())
     }
 }
