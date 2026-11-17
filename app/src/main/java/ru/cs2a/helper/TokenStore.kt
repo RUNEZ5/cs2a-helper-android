@@ -12,10 +12,12 @@ object TokenStore {
     private lateinit var secure: SharedPreferences
     private lateinit var plain: SharedPreferences
     private var ready = false
+    private lateinit var appContext: Context
 
     fun init(ctx: Context) {
         if (ready) return
         val appCtx = ctx.applicationContext
+        appContext = appCtx
         val masterKey = MasterKey.Builder(appCtx)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
@@ -27,6 +29,8 @@ object TokenStore {
         plain = appCtx.getSharedPreferences("cs2a_prefs", Context.MODE_PRIVATE)
         ready = true
     }
+
+    fun appContext(): Context? = if (ready) appContext else null
 
     fun saveJwt(token: String) {
         val payload = decodeJwtPayload(token)
