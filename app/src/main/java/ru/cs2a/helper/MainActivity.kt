@@ -27,14 +27,18 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import ru.cs2a.helper.alarm.AlarmScheduler
 import ru.cs2a.helper.spam.SpamForegroundService
 import ru.cs2a.helper.update.UpdateManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.content.ClipData
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -573,8 +577,36 @@ class MainActivity : AppCompatActivity() {
             }
         }
         findViewById<Button>(R.id.updateBtn).setOnClickListener { checkForUpdate(silent = false) }
+        findViewById<Button>(R.id.exportLogsBtn).setOnClickListener { exportDiagnosticLogs() }
         findViewById<TextView>(R.id.appVersion).text = "Версия: ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})"
         refreshStatus()
+    }
+
+    private fun exportDiagnosticLogs() {
+        Toast.makeText(this, "Готовлю архив логов…", Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val archive = Logs.exportArchive(this@MainActivity, "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+                withContext(Dispatchers.Main) {
+                    val uri = FileProvider.getUriForFile(
+                        this@MainActivity,
+                        "${BuildConfig.APPLICATION_ID}.fileprovider",
+                        archive
+                    )
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/zip"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        clipData = ClipData.newUri(contentResolver, "CS2A diagnostics", uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    startActivity(Intent.createChooser(send, "Сохранить или отправить диагностические логи"))
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Не удалось подготовить логи: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
 
     private val expFmt = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
