@@ -115,10 +115,10 @@ jobs:
                   bullets = ["В этой версии — улучшения и исправления."]
           bullets = bullets[:8]
           message = (
-              "🚀 <b>Вышло новое обновление CS2A Helper!</b>\\n\\n"
-              f"<b>Сборка:</b> {html.escape(number)}\\n"
-              f"<b>{html.escape(title_ru)}</b>\\n\\n"
-              + "\\n".join("• " + html.escape(item) for item in bullets)
+              "🚀 <b>Вышло новое обновление CS2A Helper!</b>\n\n"
+              f"<b>Сборка:</b> {html.escape(number)}\n"
+              f"<b>{html.escape(title_ru)}</b>\n\n"
+              + "\n".join("• " + html.escape(item) for item in bullets)
           )
           print(message)
           PY
