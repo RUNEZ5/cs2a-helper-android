@@ -39,5 +39,5 @@
             <include layout="@layout/panel_promo" android:id="@+id/panelPromo" />
             <include layout="@layout/panel_status" android:id="@+id/panelStatus" />
         </FrameLayout>
-    </ScrollView>
+    </androidx.core.widget.NestedScrollView>
 </LinearLayout>
