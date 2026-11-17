@@ -45,24 +45,23 @@ object Logs {
         }
     }
 
-    @Synchronized
-    private fun readAll(ctx: Context): List<JSONObject> {
+    fun render(ctx: Context, tab: String, limit: Int = 12): String {
         ensureMigrated(ctx)
+        val tail = ArrayDeque<String>()
         val file = File(ctx.filesDir, FILE_NAME)
-        if (!file.exists()) return emptyList()
-        val result = ArrayList<JSONObject>()
-        file.forEachLine(Charsets.UTF_8) { line ->
-            if (line.isNotBlank()) {
-                try { result.add(JSONObject(line)) } catch (_: Exception) { }
+        if (file.exists()) {
+            file.forEachLine(Charsets.UTF_8) { line ->
+                if (line.isNotBlank()) {
+                    try {
+                        val item = JSONObject(line)
+                        if (item.optString("tab") == tab) {
+                            if (tail.size == limit) tail.removeFirst()
+                            tail.addLast(fmt.format(Date(item.optLong("t"))) + "  " + item.optString("text"))
+                        }
+                    } catch (_: Exception) { }
+                }
             }
         }
-        return result
-    }
-
-    fun render(ctx: Context, tab: String): String {
-        val items = readAll(ctx).filter { it.optString("tab") == tab }
-        return items.asReversed().joinToString("\n") { item ->
-            fmt.format(Date(item.optLong("t"))) + "  " + item.optString("text")
-        }
+        return tail.toList().asReversed().joinToString("\n")
     }
 }
