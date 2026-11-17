@@ -7,11 +7,9 @@ import android.content.Intent
 import android.os.Build
 import java.util.Calendar
 
-// Аналог chrome.alarms из background.js: будильники на фиксированное время по МСК (ферма,
-// кэшбек) и будильники с относительной задержкой для розыгрышей (свой цикл у каждого).
+// Будильники на фиксированное время по МСК для фермы и относительные циклы розыгрышей.
 object AlarmScheduler {
     const val ACTION_FARM = "ru.cs2a.helper.action.FARM"
-    const val ACTION_CASHBACK = "ru.cs2a.helper.action.CASHBACK"
     const val ACTION_LOTTERY = "ru.cs2a.helper.action.LOTTERY"
     const val EXTRA_LOTTERY_ID = "lotteryId"
 
@@ -54,22 +52,6 @@ object AlarmScheduler {
     fun cancelFarm(ctx: Context) {
         val pi = PendingIntent.getBroadcast(
             ctx, 1001, Intent(ctx, AlarmReceiver::class.java).setAction(ACTION_FARM),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        mgr(ctx).cancel(pi)
-    }
-
-    fun scheduleCashback(ctx: Context) {
-        val pi = PendingIntent.getBroadcast(
-            ctx, 1002, Intent(ctx, AlarmReceiver::class.java).setAction(ACTION_CASHBACK),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        exact(ctx, nextMskMillis(), pi)
-    }
-
-    fun cancelCashback(ctx: Context) {
-        val pi = PendingIntent.getBroadcast(
-            ctx, 1002, Intent(ctx, AlarmReceiver::class.java).setAction(ACTION_CASHBACK),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         mgr(ctx).cancel(pi)
