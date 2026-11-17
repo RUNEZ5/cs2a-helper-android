@@ -95,7 +95,7 @@ object PromoActivator {
         val group = resultCategory(item.optBoolean("activated", false), item.optString("message"))
         recentHistoryByAccount[accountKey]?.let { byCategory ->
             val queue = byCategory.getOrPut(group) { ArrayDeque() }
-            if (queue.size == 12) queue.removeFirst()
+            if (queue.size == 100) queue.removeFirst()
             queue.addLast(item)
         }
         if (item.optBoolean("activated", false)) {
@@ -237,7 +237,7 @@ object PromoActivator {
 
 
     @Synchronized
-    private fun readRecentHistory(jwt: String, category: String, limit: Int = 12): List<JSONObject> {
+    private fun readRecentHistory(jwt: String, category: String, limit: Int = 100): List<JSONObject> {
         val accountKey = historyKey(jwt)
         val cached = recentHistoryByAccount[accountKey]
         if (cached != null) return cached[category]?.toList().orEmpty()
@@ -267,7 +267,7 @@ object PromoActivator {
         val jwt = TokenStore.jwt() ?: return "Сначала войдите в аккаунт на выбранном зеркале."
         val items = if (category == "all") {
             val all = readRecentHistory(jwt, "activated") + readRecentHistory(jwt, "deposit") + readRecentHistory(jwt, "used") + readRecentHistory(jwt, "invalid") + readRecentHistory(jwt, "other")
-            all.sortedBy { it.optLong("time") }.takeLast(12)
+            all.sortedBy { it.optLong("time") }.takeLast(100)
         } else readRecentHistory(jwt, category)
         if (items.isEmpty()) return "Пока нет результатов в этой категории."
         val fmt = SimpleDateFormat("dd.MM HH:mm:ss", Locale.getDefault())
