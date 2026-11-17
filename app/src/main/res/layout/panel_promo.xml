@@ -43,16 +43,6 @@
   <Button android:id="@+id/promoStopBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Остановить мониторинг" android:layout_marginTop="6dp"/>
  </LinearLayout>
  <TextView android:id="@+id/promoStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Остановлено" android:textColor="@color/textDim" android:layout_marginTop="12dp"/>
- <TextView style="@style/CardLabel" android:text="Результаты активации · выберите категорию"/>
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-  <Button android:id="@+id/promoResultsActivatedBtn" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Активированы" android:textSize="10sp"/>
-  <Button android:id="@+id/promoResultsDepositBtn" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Депозит" android:textSize="10sp"/>
-  <Button android:id="@+id/promoResultsUsedBtn" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Уже использованы" android:textSize="10sp"/>
- </LinearLayout>
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-  <Button android:id="@+id/promoResultsInvalidBtn" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Неверные / истекшие" android:textSize="10sp"/>
-  <Button android:id="@+id/promoResultsOtherBtn" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Другие причины" android:textSize="10sp"/>
- </LinearLayout>
  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginTop="16dp" android:padding="12dp" android:background="@color/card">
   <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="ИСТОРИЯ АКТИВАЦИИ" android:textColor="@color/accent" android:textStyle="bold" android:textSize="12sp"/>
   <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="6dp">
