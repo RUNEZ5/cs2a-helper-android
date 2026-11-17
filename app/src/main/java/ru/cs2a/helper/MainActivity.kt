@@ -19,6 +19,8 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ImageView
+import android.graphics.BitmapFactory
 import android.widget.Spinner
 import android.widget.Switch
 import android.widget.TextView
@@ -38,6 +40,7 @@ import ru.cs2a.helper.update.UpdateManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.net.URL
 import android.content.ClipData
 
 class MainActivity : AppCompatActivity() {
@@ -58,6 +61,7 @@ class MainActivity : AppCompatActivity() {
             "spam" to findViewById<View>(R.id.panelSpam),
             "status" to findViewById<View>(R.id.panelStatus),
             "promo" to findViewById<View>(R.id.panelPromo),
+            "about" to findViewById<View>(R.id.panelAbout),
         )
     }
 
@@ -267,12 +271,14 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.tabSpam).setOnClickListener { showTab("spam") }
         findViewById<Button>(R.id.tabStatus).setOnClickListener { showTab("status") }
         findViewById<Button>(R.id.tabPromo).setOnClickListener { showTab("promo") }
+        findViewById<Button>(R.id.tabAbout).setOnClickListener { showTab("about") }
 
         setupFarm()
         setupRaffles()
         setupSpam()
         setupStatus()
         setupPromo()
+        setupDeveloper()
         refreshLoop()
         checkForUpdate(silent = true)
         ensureNotificationPermission()
@@ -316,6 +322,7 @@ class MainActivity : AppCompatActivity() {
             "spam" -> "Чат-активность" to "Управление сообщениями и шаблоном"
             "promo" -> "Промокоды" to "Поиск, проверка и активация"
             "status" -> "Статус и настройки" to "Аккаунт, обслуживание и диагностика"
+            "about" -> "О разработчике" to ""
             else -> "CS2A Helper" to "Ваш помощник"
         }
         findViewById<TextView>(R.id.pageTitle).text = page.first
@@ -326,7 +333,8 @@ class MainActivity : AppCompatActivity() {
             "raffles" to R.id.tabRaffles,
             "spam" to R.id.tabSpam,
             "promo" to R.id.tabPromo,
-            "status" to R.id.tabStatus
+            "status" to R.id.tabStatus,
+            "about" to R.id.tabAbout
         )
         for ((key, id) in tabIds) {
             val tab = findViewById<Button>(id)
@@ -335,6 +343,28 @@ class MainActivity : AppCompatActivity() {
             tab.backgroundTintList = android.content.res.ColorStateList.valueOf(
                 ContextCompat.getColor(this, if (selected) R.color.accent else R.color.card)
             )
+        }
+    }
+
+
+    private fun setupDeveloper() {
+        val photo = findViewById<ImageView>(R.id.developerPhoto)
+        lifecycleScope.launch {
+            val bitmap = withContext(Dispatchers.IO) {
+                try {
+                    URL("https://i.pinimg.com/736x/27/1c/84/271c846c76dc801be5ff6f1a80bc56b0.jpg")
+                        .openConnection()
+                        .apply {
+                            connectTimeout = 15000
+                            readTimeout = 20000
+                        }
+                        .getInputStream()
+                        .use { BitmapFactory.decodeStream(it) }
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            if (bitmap != null) photo.setImageBitmap(bitmap)
         }
     }
 
@@ -405,7 +435,7 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.promoScanBtn).setOnClickListener {
             PromoTelegramService.scanHistory(this)
-            findViewById<TextView>(R.id.promoStatus).text = "Проверяю историю @promo_runs…"
+            findViewById<TextView>(R.id.promoStatus).text = "Проверяю историю канала…"
         }
         findViewById<Button>(R.id.promoMonitorBtn).setOnClickListener {
             if (!TokenStore.isApiTokenValid()) {
@@ -413,7 +443,7 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             PromoTelegramService.startMonitoring(this)
-            findViewById<TextView>(R.id.promoStatus).text = "Запускаю мониторинг @promo_runs…"
+            findViewById<TextView>(R.id.promoStatus).text = "Запускаю мониторинг канала…"
         }
         findViewById<Button>(R.id.promoSubmitCodeBtn).setOnClickListener {
             val value = code.text.toString().trim()
