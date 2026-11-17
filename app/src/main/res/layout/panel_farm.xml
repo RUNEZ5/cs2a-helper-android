@@ -26,5 +26,12 @@
     </LinearLayout>
     <Button android:id="@+id/cashbackClaimBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Кэшбек сейчас" android:layout_marginTop="6dp" />
 
-    <TextView android:id="@+id/farmLog" style="@style/LogText" android:text="" />
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="180dp"
+        android:fillViewport="true"
+        android:nestedScrollingEnabled="true"
+        android:overScrollMode="ifContentScrolls">
+        <TextView android:id="@+id/farmLog" style="@style/LogText" android:text="" />
+    </androidx.core.widget.NestedScrollView>
 </LinearLayout>
