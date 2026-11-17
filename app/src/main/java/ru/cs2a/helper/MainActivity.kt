@@ -186,7 +186,7 @@ class MainActivity : AppCompatActivity() {
             isEnabled = !loading
             setOnClickListener {
                 try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/runchikist?direct"))) }
-                catch (_: Exception) { Toast.makeText(this@MainActivity, "Свяжитесь с администратором: ${url}", Toast.LENGTH_LONG).show() }
+                catch (_: Exception) { Toast.makeText(this@MainActivity, "Свяжитесь с администратором: https://t.me/runchikist?direct", Toast.LENGTH_LONG).show() }
             }
         }
         content.addView(contact, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 8 })
