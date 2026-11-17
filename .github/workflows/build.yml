@@ -91,6 +91,11 @@ jobs:
               ),
           }
 
+          known["Убрать упоминания источника промокодов и добавить раздел разработчика"] = (
+              "Обновление приложения",
+              ["Исправлено окно с логами.", "Добавлен раздел «О разработчике»."]
+          )
+
           if title in known:
               title_ru, bullets = known[title]
           else:
@@ -111,8 +116,6 @@ jobs:
                       item = line.lstrip("-* ").strip()
                       if re.search(r"[А-Яа-яЁё]", item):
                           bullets.append(item)
-              if not bullets:
-                  bullets = ["В этой версии — улучшения и исправления."]
           bullets = bullets[:8]
           message = (
               "🚀 <b>Вышло новое обновление CS2A Helper!</b>\n\n"
