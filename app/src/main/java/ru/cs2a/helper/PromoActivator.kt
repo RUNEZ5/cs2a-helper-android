@@ -224,21 +224,37 @@ object PromoActivator {
     }
 
 
+    private fun readRecentHistory(jwt: String, limit: Int = 12): List<JSONObject> {
+        val file = historyFile(jwt)
+        if (file == null) {
+            val legacy = try { JSONArray(TokenStore.getString(historyKey(jwt), "[]")) } catch (_: Exception) { JSONArray() }
+            return (maxOf(0, legacy.length() - limit) until legacy.length()).mapNotNull { legacy.optJSONObject(it) }
+        }
+        if (!file.exists()) return emptyList()
+        val tail = ArrayDeque<JSONObject>()
+        file.forEachLine(Charsets.UTF_8) { line ->
+            if (line.isNotBlank()) try {
+                if (tail.size == limit) tail.removeFirst()
+                tail.addLast(JSONObject(line))
+            } catch (_: Exception) { }
+        }
+        return tail.toList()
+    }
+
     // Result windows use stable reason groups; old history entries are classified on read too.
     fun historyForCategory(category: String): String {
         val jwt = TokenStore.jwt() ?: return "Сначала войдите в аккаунт на выбранном зеркале."
-        val items = readHistory(jwt).filter { item ->
+        val items = readRecentHistory(jwt).filter { item ->
             val group = resultCategory(item.optBoolean("activated", false), item.optString("message"))
             category == "all" || category == group
         }
         if (items.isEmpty()) return "Пока нет результатов в этой категории."
         val fmt = SimpleDateFormat("dd.MM HH:mm:ss", Locale.getDefault())
-        return items.asReversed().joinToString("\n\n") { item ->
+        return items.asReversed().joinToString("\n") { item ->
             val time = fmt.format(Date(item.optLong("time")))
             val code = item.optString("code")
-            val message = item.optString("message")
-            val mirror = item.optString("mirror")
-            "$time  ·  $code\n$message\nЗеркало: $mirror"
+            val message = item.optString("message").replace('\n', ' ').take(72)
+            "$time  ·  $code  ·  $message"
         }
     }
 
