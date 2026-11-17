@@ -30,11 +30,18 @@
  <TextView style="@style/CardLabel" android:text="Интервал между активациями · секунд"/>
  <EditText android:id="@+id/promoActivationInterval" android:layout_width="match_parent" android:layout_height="48dp" android:inputType="number" android:singleLine="true" android:hint="Например, 1" android:textColor="@color/text" android:background="@color/bg" android:paddingHorizontal="12dp"/>
  <Button android:id="@+id/promoStartBtn" android:layout_width="match_parent" android:layout_height="50dp" android:text="Сохранить настройки и подключить Telegram" android:layout_marginTop="14dp"/>
- <Button android:id="@+id/promoScanBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Начать проверку промо" android:layout_marginTop="7dp"/>
- <Button android:id="@+id/promoMonitorBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Начать мониторинг" android:layout_marginTop="7dp"/>
- <Button android:id="@+id/promoScanStopBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Остановить проверку истории" android:layout_marginTop="7dp"/>
- <Button android:id="@+id/promoClearHistoryBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Удалить историю использованных промо" android:layout_marginTop="7dp"/>
- <Button android:id="@+id/promoStopBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Остановить мониторинг" android:layout_marginTop="7dp"/>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginTop="16dp" android:padding="12dp" android:background="@color/card">
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="ПРОВЕРКА ИСТОРИИ" android:textColor="@color/accent" android:textStyle="bold" android:textSize="12sp"/>
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Поиск промокодов в предыдущих публикациях." android:textColor="@color/textDim" android:textSize="12sp"/>
+  <Button android:id="@+id/promoScanBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Начать проверку промо" android:layout_marginTop="8dp"/>
+  <Button android:id="@+id/promoScanStopBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Остановить проверку промо" android:layout_marginTop="6dp"/>
+ </LinearLayout>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginTop="10dp" android:padding="12dp" android:background="@color/card">
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="МОНИТОРИНГ НОВЫХ ПРОМО" android:textColor="@color/accent" android:textStyle="bold" android:textSize="12sp"/>
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Автоматическое отслеживание новых публикаций." android:textColor="@color/textDim" android:textSize="12sp"/>
+  <Button android:id="@+id/promoMonitorBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Начать мониторинг" android:layout_marginTop="8dp"/>
+  <Button android:id="@+id/promoStopBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Остановить мониторинг" android:layout_marginTop="6dp"/>
+ </LinearLayout>
  <TextView android:id="@+id/promoStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Остановлено" android:textColor="@color/textDim" android:layout_marginTop="12dp"/>
  <TextView style="@style/CardLabel" android:text="Результаты активации · выберите категорию"/>
  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
@@ -46,8 +53,29 @@
   <Button android:id="@+id/promoResultsInvalidBtn" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Неверные / истекшие" android:textSize="10sp"/>
   <Button android:id="@+id/promoResultsOtherBtn" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Другие причины" android:textSize="10sp"/>
  </LinearLayout>
- <TextView android:id="@+id/promoResultsTitle" style="@style/CardLabel" android:text="Активированные промокоды"/>
- <TextView android:id="@+id/promoResultsList" style="@style/LogText" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="12" android:ellipsize="end" android:text="Пока нет результатов."/>
- <TextView style="@style/CardLabel" android:text="Найденные коды и результаты активации"/>
- <TextView android:id="@+id/promoLog" style="@style/LogText" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="12" android:ellipsize="end" android:text=""/>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginTop="16dp" android:padding="12dp" android:background="@color/card">
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="ИСТОРИЯ АКТИВАЦИИ" android:textColor="@color/accent" android:textStyle="bold" android:textSize="12sp"/>
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="6dp">
+   <TextView android:id="@+id/promoResultsTitle" style="@style/CardLabel" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Активированные промокоды"/>
+   <Button android:id="@+id/promoClearHistoryBtn" android:layout_width="wrap_content" android:layout_height="40dp" android:text="Очистить историю" android:textSize="10sp" android:layout_marginStart="6dp"/>
+  </LinearLayout>
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+   <Button android:id="@+id/promoResultsActivatedBtn" android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1" android:text="Активированы" android:textSize="10sp"/>
+   <Button android:id="@+id/promoResultsDepositBtn" android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1" android:text="Депозит" android:textSize="10sp"/>
+   <Button android:id="@+id/promoResultsUsedBtn" android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1" android:text="Использованы" android:textSize="10sp"/>
+  </LinearLayout>
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+   <Button android:id="@+id/promoResultsInvalidBtn" android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1" android:text="Неверные / истекшие" android:textSize="10sp"/>
+   <Button android:id="@+id/promoResultsOtherBtn" android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1" android:text="Другие причины" android:textSize="10sp"/>
+  </LinearLayout>
+  <ScrollView android:layout_width="match_parent" android:layout_height="180dp" android:layout_marginTop="8dp" android:background="@color/bg" android:padding="8dp" android:fillViewport="false" android:nestedScrollingEnabled="true">
+   <TextView android:id="@+id/promoResultsList" style="@style/LogText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Пока нет результатов." android:textIsSelectable="true"/>
+  </ScrollView>
+ </LinearLayout>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginTop="10dp" android:padding="12dp" android:background="@color/card">
+  <TextView style="@style/CardLabel" android:text="Найденные коды и результаты активации"/>
+  <ScrollView android:layout_width="match_parent" android:layout_height="150dp" android:layout_marginTop="6dp" android:background="@color/bg" android:padding="8dp" android:nestedScrollingEnabled="true">
+   <TextView android:id="@+id/promoLog" style="@style/LogText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text=""/>
+  </ScrollView>
+ </LinearLayout>
 </LinearLayout>
