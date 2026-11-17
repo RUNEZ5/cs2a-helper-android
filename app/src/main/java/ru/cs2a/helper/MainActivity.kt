@@ -196,7 +196,6 @@ class MainActivity : AppCompatActivity() {
     private fun stopLicensedServices() {
         TokenStore.setBool("rafflesAuto", false)
         TokenStore.setBool("farmAuto", false)
-        TokenStore.setBool("cashbackAuto", false)
         TokenStore.setBool("promoAuto", false)
         stopService(Intent(this, SpamForegroundService::class.java))
         stopService(Intent(this, PromoTelegramService::class.java))
@@ -428,7 +427,7 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    // ---------------- Ферма / кэшбек ----------------
+    // ---------------- Ферма ----------------
     private fun setupFarm() {
         val spinner = findViewById<Spinner>(R.id.farmEggSpinner)
         spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, FARM_EGGS.map { "${it.label} (tier ${it.tier})" })
@@ -457,16 +456,9 @@ class MainActivity : AppCompatActivity() {
             lifecycleScope.launch { Api.farmEggAttempt(this@MainActivity); refreshLogs() }
         }
 
-        val cbAuto = findViewById<Switch>(R.id.cashbackAutoSwitch)
-        cbAuto.isChecked = TokenStore.getBool("cashbackAuto")
-        cbAuto.setOnCheckedChangeListener { _, on ->
-            TokenStore.setBool("cashbackAuto", on)
-            if (on) AlarmScheduler.scheduleCashback(this) else AlarmScheduler.cancelCashback(this)
-            Logs.add(this, "farm", if (on) "Автокэшбек включён (ежедневно, 03:00 МСК)" else "Автокэшбек выключен", "")
-        }
-        findViewById<Button>(R.id.cashbackClaimBtn).setOnClickListener {
-            lifecycleScope.launch { Api.cashbackAttempt(this@MainActivity); refreshLogs() }
-        }
+        // Снимаем будильник кэшбека, оставшийся от предыдущих версий.
+        AlarmScheduler.cancelCashback(this)
+        TokenStore.setBool("cashbackAuto", false)
     }
 
     // ---------------- Розыгрыши ----------------

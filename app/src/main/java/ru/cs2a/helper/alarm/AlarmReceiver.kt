@@ -21,10 +21,6 @@ class AlarmReceiver : BroadcastReceiver() {
                         Api.farmEggAttempt(context)
                         if (TokenStore.getBool("farmAuto")) AlarmScheduler.scheduleFarm(context)
                     }
-                    AlarmScheduler.ACTION_CASHBACK -> {
-                        Api.cashbackAttempt(context)
-                        if (TokenStore.getBool("cashbackAuto")) AlarmScheduler.scheduleCashback(context)
-                    }
                     AlarmScheduler.ACTION_LOTTERY -> {
                         val id = intent.getIntExtra(AlarmScheduler.EXTRA_LOTTERY_ID, -1)
                         val item = LOTTERIES.find { it.id == id }

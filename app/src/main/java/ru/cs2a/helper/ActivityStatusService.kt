@@ -31,7 +31,7 @@ class ActivityStatusService : Service() {
 
     private fun activeFeatures(): List<String> = buildList {
         if (TokenStore.getBool("rafflesAuto")) add("розыгрыши")
-        if (TokenStore.getBool("farmAuto") || TokenStore.getBool("cashbackAuto")) add("яйца и кэшбек")
+        if (TokenStore.getBool("farmAuto")) add("яйца фермы")
         if (TokenStore.getBool("promoAuto")) add("промокоды")
     }
 

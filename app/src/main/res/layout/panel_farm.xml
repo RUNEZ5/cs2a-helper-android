@@ -1,39 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:background="@drawable/panel_surface"
-    android:padding="14dp"
-    android:layout_marginBottom="10dp">
-
-    <TextView style="@style/CardLabel" android:text="Яйцо фермы (раз в сутки, 03:00 МСК)" android:layout_marginTop="0dp" />
-    <Spinner android:id="@+id/farmEggSpinner" android:layout_width="match_parent" android:layout_height="wrap_content" />
-
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="8dp">
-        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Автозабор яйца" android:textColor="@color/text" />
-        <Switch android:id="@+id/farmAutoSwitch" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-    </LinearLayout>
-
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
-        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Продавать открытый предмет" android:textColor="@color/text" />
-        <Switch android:id="@+id/farmSellSwitch" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-    </LinearLayout>
-
-    <Button android:id="@+id/farmClaimBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Забрать яйцо сейчас" android:layout_marginTop="6dp" />
-
-    <TextView style="@style/CardLabel" android:text="Кэшбек (раз в сутки, 03:00 МСК)" />
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
-        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Автокэшбек" android:textColor="@color/text" />
-        <Switch android:id="@+id/cashbackAutoSwitch" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-    </LinearLayout>
-    <Button android:id="@+id/cashbackClaimBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Кэшбек сейчас" android:layout_marginTop="6dp" />
-
-    <androidx.core.widget.NestedScrollView
-        android:layout_width="match_parent"
-        android:layout_height="180dp"
-        android:fillViewport="true"
-        android:overScrollMode="ifContentScrolls">
-        <TextView android:id="@+id/farmLog" style="@style/LogText" android:text="" />
-    </androidx.core.widget.NestedScrollView>
+ android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"
+ android:background="@drawable/panel_surface" android:padding="16dp" android:layout_marginBottom="10dp">
+ <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="🐔  Ежедневная ферма" android:textColor="@color/text" android:textStyle="bold" android:textSize="19sp"/>
+ <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Получение яйца каждый день после 03:00 МСК" android:textColor="@color/textDim" android:textSize="12sp"/>
+ <TextView style="@style/CardLabel" android:text="Выбор яйца" android:layout_marginTop="16dp"/>
+ <Spinner android:id="@+id/farmEggSpinner" android:layout_width="match_parent" android:layout_height="48dp"/>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingVertical="10dp">
+  <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Автозабор яйца" android:textColor="@color/text" android:textStyle="bold"/>
+   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Автоматически в ежедневное время" android:textColor="@color/textDim" android:textSize="11sp"/>
+  </LinearLayout>
+  <Switch android:id="@+id/farmAutoSwitch" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+ </LinearLayout>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingVertical="10dp">
+  <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Продавать открытый предмет" android:textColor="@color/text" android:textStyle="bold"/>
+   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Продажа сразу после открытия кейса" android:textColor="@color/textDim" android:textSize="11sp"/>
+  </LinearLayout>
+  <Switch android:id="@+id/farmSellSwitch" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+ </LinearLayout>
+ <Button android:id="@+id/farmClaimBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Забрать яйцо сейчас" android:layout_marginTop="8dp"/>
+ <TextView style="@style/CardLabel" android:text="Журнал фермы" android:layout_marginTop="18dp"/>
+ <androidx.core.widget.NestedScrollView android:layout_width="match_parent" android:layout_height="180dp" android:fillViewport="true" android:overScrollMode="ifContentScrolls">
+  <TextView android:id="@+id/farmLog" style="@style/LogText" android:text=""/>
+ </androidx.core.widget.NestedScrollView>
 </LinearLayout>

@@ -1,88 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:background="@drawable/panel_surface"
-    android:padding="14dp"
-    android:layout_marginBottom="10dp">
-
-    <TextView style="@style/CardLabel" android:text="Telegram · публичный канал @promo_runs" android:layout_marginTop="0dp" />
-    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="После подключения отдельно запускайте проверку старых публикаций за выбранный период и мониторинг новых публикаций."
-        android:textColor="@color/textDim" android:textSize="12sp" />
-
-    <TextView style="@style/CardLabel" android:text="Telegram API ID" />
-    <EditText android:id="@+id/promoApiId" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:inputType="number" android:singleLine="true" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
-
-    <TextView style="@style/CardLabel" android:text="Telegram API Hash" />
-    <EditText android:id="@+id/promoApiHash" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:inputType="textPassword" android:singleLine="true" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
-
-    <TextView style="@style/CardLabel" android:text="Номер телефона Telegram" />
-    <EditText android:id="@+id/promoPhone" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:inputType="phone" android:singleLine="true" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
-
-    <TextView style="@style/CardLabel" android:text="Зеркало для активации (выбирается вручную)" />
-    <Spinner android:id="@+id/promoMirror" android:layout_width="match_parent" android:layout_height="48dp" />
-
-    <TextView style="@style/CardLabel" android:text="Период проверки истории (дней)" />
-    <EditText android:id="@+id/promoScanDays" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:inputType="number" android:singleLine="true" android:hint="Например, 365"
-        android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
-
-    <TextView style="@style/CardLabel" android:text="Интервал между активациями (секунд)" />
-    <EditText android:id="@+id/promoActivationInterval" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:inputType="number" android:singleLine="true" android:hint="Например, 1"
-        android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
-
-    <Button android:id="@+id/promoStartBtn" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="Сохранить настройки и подключить Telegram" android:layout_marginTop="10dp" />
-
-    <Button android:id="@+id/promoScanBtn" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="Начать проверку промо" android:layout_marginTop="6dp" />
-    <Button android:id="@+id/promoMonitorBtn" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="Начать мониторинг" android:layout_marginTop="6dp" />
-
-    <Button android:id="@+id/promoScanStopBtn" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="Остановить проверку истории" android:layout_marginTop="6dp" />
-
-    <Button android:id="@+id/promoClearHistoryBtn" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="Удалить историю использованных промо" android:layout_marginTop="6dp" />
-
-    <TextView style="@style/CardLabel" android:text="Код входа Telegram" />
-    <EditText android:id="@+id/promoLoginCode" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:inputType="number" android:singleLine="true" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
-    <Button android:id="@+id/promoSubmitCodeBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Подтвердить код" />
-
-    <TextView style="@style/CardLabel" android:text="Пароль двухэтапной аутентификации (если запрошен)" />
-    <EditText android:id="@+id/promoPassword" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:inputType="textPassword" android:singleLine="true" android:textColor="@color/text" android:background="@color/card" android:padding="10dp" />
-    <Button android:id="@+id/promoSubmitPasswordBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Подтвердить пароль" />
-
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
-        <Button android:id="@+id/promoStopBtn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Остановить мониторинг" />
-    </LinearLayout>
-
-    <TextView android:id="@+id/promoStatus" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="Остановлено" android:textColor="@color/textDim" android:layout_marginTop="8dp" />
-    <TextView style="@style/CardLabel" android:text="Результаты активации · выберите окно" />
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-        <Button android:id="@+id/promoResultsActivatedBtn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Активированы" android:textSize="10sp" />
-        <Button android:id="@+id/promoResultsDepositBtn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Депозит" android:textSize="10sp" />
-        <Button android:id="@+id/promoResultsUsedBtn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Уже использованы" android:textSize="10sp" />
-    </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-        <Button android:id="@+id/promoResultsInvalidBtn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Неверные / истекшие" android:textSize="10sp" />
-        <Button android:id="@+id/promoResultsOtherBtn" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Другие причины" android:textSize="10sp" />
-    </LinearLayout>
-    <TextView android:id="@+id/promoResultsTitle" style="@style/CardLabel" android:text="Активированные промокоды" />
-    <TextView android:id="@+id/promoResultsList" style="@style/LogText"
-        android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:maxLines="12" android:ellipsize="end" android:text="Пока нет результатов." />
-    <TextView style="@style/CardLabel" android:text="Найденные коды и результаты активации" />
-    <TextView android:id="@+id/promoLog" style="@style/LogText"
-        android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:maxLines="12" android:ellipsize="end" android:text="" />
+ android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"
+ android:background="@drawable/panel_surface" android:padding="16dp" android:layout_marginBottom="10dp">
+ <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="🎁  Мониторинг промокодов" android:textColor="@color/text" android:textStyle="bold" android:textSize="19sp"/>
+ <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Telegram · публичный канал @promo_runs" android:textColor="@color/accent" android:textStyle="bold" android:textSize="13sp"/>
+ <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Подключите Telegram, затем отдельно запустите проверку старых публикаций и мониторинг новых промокодов." android:textColor="@color/textDim" android:textSize="12sp"/>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:orientation="vertical" android:padding="12dp" android:background="@color/card">
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="TELEGRAM · ДАННЫЕ АВТОРИЗАЦИИ" android:textColor="@color/accent" android:textStyle="bold" android:textSize="12sp"/>
+  <TextView style="@style/CardLabel" android:text="Telegram API ID" android:layout_marginTop="10dp"/>
+  <EditText android:id="@+id/promoApiId" android:layout_width="match_parent" android:layout_height="48dp" android:inputType="number" android:singleLine="true" android:textColor="@color/text" android:background="@color/bg" android:paddingHorizontal="12dp"/>
+  <TextView style="@style/CardLabel" android:text="Telegram API Hash"/>
+  <EditText android:id="@+id/promoApiHash" android:layout_width="match_parent" android:layout_height="48dp" android:inputType="textPassword" android:singleLine="true" android:textColor="@color/text" android:background="@color/bg" android:paddingHorizontal="12dp"/>
+  <TextView style="@style/CardLabel" android:text="Номер телефона Telegram"/>
+  <EditText android:id="@+id/promoPhone" android:layout_width="match_parent" android:layout_height="48dp" android:inputType="phone" android:singleLine="true" android:textColor="@color/text" android:background="@color/bg" android:paddingHorizontal="12dp"/>
+  <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="14dp" android:layout_marginBottom="4dp" android:background="@color/surface"/>
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="ПОДТВЕРЖДЕНИЕ ВХОДА" android:textColor="@color/accent" android:textStyle="bold" android:textSize="12sp" android:layout_marginTop="8dp"/>
+  <TextView style="@style/CardLabel" android:text="Код входа Telegram"/>
+  <EditText android:id="@+id/promoLoginCode" android:layout_width="match_parent" android:layout_height="48dp" android:inputType="number" android:singleLine="true" android:textColor="@color/text" android:background="@color/bg" android:paddingHorizontal="12dp"/>
+  <Button android:id="@+id/promoSubmitCodeBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Подтвердить код" android:layout_marginTop="6dp"/>
+  <TextView style="@style/CardLabel" android:text="Пароль двухэтапной аутентификации (если запрошен)"/>
+  <EditText android:id="@+id/promoPassword" android:layout_width="match_parent" android:layout_height="48dp" android:inputType="textPassword" android:singleLine="true" android:textColor="@color/text" android:background="@color/bg" android:paddingHorizontal="12dp"/>
+  <Button android:id="@+id/promoSubmitPasswordBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Подтвердить пароль" android:layout_marginTop="6dp"/>
+ </LinearLayout>
+ <TextView style="@style/CardLabel" android:text="Параметры активации" android:layout_marginTop="18dp"/>
+ <TextView style="@style/CardLabel" android:text="Зеркало для активации · выберите вручную"/>
+ <Spinner android:id="@+id/promoMirror" android:layout_width="match_parent" android:layout_height="48dp"/>
+ <TextView style="@style/CardLabel" android:text="Период проверки истории · дней"/>
+ <EditText android:id="@+id/promoScanDays" android:layout_width="match_parent" android:layout_height="48dp" android:inputType="number" android:singleLine="true" android:hint="Например, 365" android:textColor="@color/text" android:background="@color/bg" android:paddingHorizontal="12dp"/>
+ <TextView style="@style/CardLabel" android:text="Интервал между активациями · секунд"/>
+ <EditText android:id="@+id/promoActivationInterval" android:layout_width="match_parent" android:layout_height="48dp" android:inputType="number" android:singleLine="true" android:hint="Например, 1" android:textColor="@color/text" android:background="@color/bg" android:paddingHorizontal="12dp"/>
+ <Button android:id="@+id/promoStartBtn" android:layout_width="match_parent" android:layout_height="50dp" android:text="Сохранить настройки и подключить Telegram" android:layout_marginTop="14dp"/>
+ <Button android:id="@+id/promoScanBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Начать проверку промо" android:layout_marginTop="7dp"/>
+ <Button android:id="@+id/promoMonitorBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Начать мониторинг" android:layout_marginTop="7dp"/>
+ <Button android:id="@+id/promoScanStopBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Остановить проверку истории" android:layout_marginTop="7dp"/>
+ <Button android:id="@+id/promoClearHistoryBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Удалить историю использованных промо" android:layout_marginTop="7dp"/>
+ <Button android:id="@+id/promoStopBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Остановить мониторинг" android:layout_marginTop="7dp"/>
+ <TextView android:id="@+id/promoStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Остановлено" android:textColor="@color/textDim" android:layout_marginTop="12dp"/>
+ <TextView style="@style/CardLabel" android:text="Результаты активации · выберите категорию"/>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+  <Button android:id="@+id/promoResultsActivatedBtn" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Активированы" android:textSize="10sp"/>
+  <Button android:id="@+id/promoResultsDepositBtn" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Депозит" android:textSize="10sp"/>
+  <Button android:id="@+id/promoResultsUsedBtn" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Уже использованы" android:textSize="10sp"/>
+ </LinearLayout>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+  <Button android:id="@+id/promoResultsInvalidBtn" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Неверные / истекшие" android:textSize="10sp"/>
+  <Button android:id="@+id/promoResultsOtherBtn" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Другие причины" android:textSize="10sp"/>
+ </LinearLayout>
+ <TextView android:id="@+id/promoResultsTitle" style="@style/CardLabel" android:text="Активированные промокоды"/>
+ <TextView android:id="@+id/promoResultsList" style="@style/LogText" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="12" android:ellipsize="end" android:text="Пока нет результатов."/>
+ <TextView style="@style/CardLabel" android:text="Найденные коды и результаты активации"/>
+ <TextView android:id="@+id/promoLog" style="@style/LogText" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="12" android:ellipsize="end" android:text=""/>
 </LinearLayout>
