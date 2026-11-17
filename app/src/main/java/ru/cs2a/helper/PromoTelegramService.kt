@@ -170,6 +170,17 @@ class PromoTelegramService : Service() {
                     scope.launch { processMessage(obj.message, false) }
                 }
             }
+            is TdApi.UpdateMessageEdited -> {
+                if (TokenStore.getBool("promoAuto") && obj.chatId == chatId) {
+                    // Telegram does not resend edited posts as UpdateNewMessage.
+                    // Fetch the updated message and run the same parser/activation flow.
+                    client?.send(TdApi.GetMessage(obj.chatId, obj.messageId)) { result ->
+                        if (result is TdApi.Message && TokenStore.getBool("promoAuto")) {
+                            scope.launch { processMessage(result, false) }
+                        }
+                    }
+                }
+            }
             is TdApi.UpdateConnectionState -> status("Telegram: ${obj.state.javaClass.simpleName}")
         }
     }
