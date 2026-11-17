@@ -4,15 +4,15 @@ import java.util.Locale
 
 /** Conservative parser: explicit code formatting or a price/case marker is preferred. */
 object PromoCodeParser {
-    private val tokenRegex = Regex("""(?<![\\p{L}\\p{N}])[\\p{L}\\p{N}]{4,40}(?![\\p{L}\\p{N}])""")
-    private val candidateRegex = Regex("""[\\p{L}\\p{N}]{4,40}""")
-    private val numericRegex = Regex("""\\d{8,32}""")
+    private val tokenRegex = Regex("""(?<![\p{L}\p{N}])[\p{L}\p{N}]{4,40}(?![\p{L}\p{N}])""")
+    private val candidateRegex = Regex("""[\p{L}\p{N}]{4,40}""")
+    private val numericRegex = Regex("""\d{8,32}""")
     private val priceRegex = Regex(
-        """(?iu)(?:\\d+(?:[.,]\\d+)?\\s*(?:\\$|€|₽|руб(?:\\.|лей)?|usd)|(?:\\$|€|₽)\\s*\\d+(?:[.,]\\d+)?)"""
+        """(?iu)(?:\d+(?:[.,]\d+)?\s*(?:\$|€|₽|руб(?:\.|лей)?|usd)|(?:\$|€|₽)\s*\d+(?:[.,]\d+)?)"""
     )
-    private val caseRegex = Regex("""(?iu)\\b(?:КЕЙС|CASE)\\b""")
+    private val caseRegex = Regex("""(?iu)\b(?:КЕЙС|CASE)\b""")
     private val separatorRegex = Regex("""[—–:-]""")
-    private val urlRegex = Regex("""(?iu)(?:https?://|www\\.)[^\\s]+|\\bt\\.me/[^\\s]+""")
+    private val urlRegex = Regex("""(?iu)(?:https?://|www\.)[^\s]+|\bt\.me/[^\s]+""")
 
     private val ignoredWords = setOf(
         "ПРОМО", "ПРОМОКОД", "ПРОМОЧАТ", "ПРОМОИЗПОСТА", "ИЗ", "ПОСТА",
@@ -27,7 +27,7 @@ object PromoCodeParser {
         "ПОДПИСКУ В TELEGRAM", "TELEGRAM-БОТ"
     )
     private val depositConditionRegex = Regex(
-        """(?iu)(?:\\+\\s*)?\\d{1,3}\\s*%\\s*(?:к\\s*)?(?:депозит\\w*|deposit\\w*)|(?:депозит\\w*|deposit\\w*)[^\\n]{0,40}(?:\\+\\s*)?\\d{1,3}\\s*%"""
+        """(?iu)(?:\+\s*)?\d{1,3}\s*%\s*(?:к\s*)?(?:депозит\w*|deposit\w*)|(?:депозит\w*|deposit\w*)[^\n]{0,40}(?:\+\s*)?\d{1,3}\s*%"""
     )
 
     fun isDepositRelated(message: String): Boolean = depositConditionRegex.containsMatchIn(message)
