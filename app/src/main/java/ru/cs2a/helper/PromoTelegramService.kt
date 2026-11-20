@@ -116,6 +116,7 @@ class PromoTelegramService : Service() {
             status("Инициализация Telegram…")
         } catch (e: Exception) {
             status("Ошибка TDLib: ${e.message}")
+            Logs.add(this, "promo", "Ошибка инициализации Telegram: " + (e.message ?: e.javaClass.simpleName), "bad")
             Log.e("CS2APromo", "TDLib init failed", e)
         }
     }

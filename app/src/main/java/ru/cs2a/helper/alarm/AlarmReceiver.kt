@@ -18,6 +18,7 @@ class AlarmReceiver : BroadcastReceiver() {
             try {
                 when (intent.action) {
                     AlarmScheduler.ACTION_FARM -> {
+                        Logs.add(context, "farm", "Запущена плановая проверка яйца", "")
                         Api.farmEggAttempt(context)
                         if (TokenStore.getBool("farmAuto")) AlarmScheduler.scheduleFarm(context)
                     }
@@ -25,11 +26,14 @@ class AlarmReceiver : BroadcastReceiver() {
                         val id = intent.getIntExtra(AlarmScheduler.EXTRA_LOTTERY_ID, -1)
                         val item = LOTTERIES.find { it.id == id }
                         if (item != null) {
+                            Logs.add(context, "raffles", "Запущено плановое участие: " + item.name, "")
                             Api.joinLottery(context, item)
                             if (TokenStore.getBool("rafflesAuto")) AlarmScheduler.scheduleLottery(context, item.id, item.cycleMin)
                         }
                     }
                 }
+            } catch (e: Exception) {
+                Logs.add(context, "system", "Ошибка фоновой задачи: " + (e.message ?: e.javaClass.simpleName), "bad")
             } finally {
                 pending.finish()
             }

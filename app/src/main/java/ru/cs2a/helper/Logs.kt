@@ -73,6 +73,23 @@ object Logs {
     fun exportArchive(ctx: Context, appVersion: String): File {
         ensureMigrated(ctx)
         val source = File(ctx.filesDir, FILE_NAME)
+        val counts = linkedMapOf<String, Int>()
+        var totalEvents = 0
+        var firstEventAt = 0L
+        var lastEventAt = 0L
+        if (source.exists()) source.forEachLine(Charsets.UTF_8) { line ->
+            if (line.isNotBlank()) try {
+                val item = JSONObject(line)
+                val tab = item.optString("tab", "other")
+                counts[tab] = (counts[tab] ?: 0) + 1
+                totalEvents++
+                val time = item.optLong("t")
+                if (time > 0L) {
+                    if (firstEventAt == 0L || time < firstEventAt) firstEventAt = time
+                    if (time > lastEventAt) lastEventAt = time
+                }
+            } catch (_: Exception) { }
+        }
         val dir = File(ctx.cacheDir, "log-export").apply { mkdirs() }
         val archive = File(dir, "cs2a-diagnostics-${System.currentTimeMillis()}.zip")
         val jwtPattern = Regex("""eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}""")
@@ -91,6 +108,17 @@ object Logs {
             } else {
                 zip.write("Лог пока пуст\n".toByteArray(Charsets.UTF_8))
             }
+            zip.closeEntry()
+            zip.putNextEntry(java.util.zip.ZipEntry("events-summary.txt"))
+            val summary = buildString {
+                appendLine("Всего событий: $totalEvents")
+                if (firstEventAt > 0L) appendLine("Первое событие: " + java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.US).format(Date(firstEventAt)))
+                if (lastEventAt > 0L) appendLine("Последнее событие: " + java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.US).format(Date(lastEventAt)))
+                appendLine()
+                appendLine("События по разделам:")
+                for ((tab, count) in counts) appendLine("$tab: $count")
+            }
+            zip.write(summary.toByteArray(Charsets.UTF_8))
             zip.closeEntry()
             zip.putNextEntry(java.util.zip.ZipEntry("report.txt"))
             val generated = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.US).format(Date())
