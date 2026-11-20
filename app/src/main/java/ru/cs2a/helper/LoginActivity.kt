@@ -2,8 +2,6 @@ package ru.cs2a.helper
 
 import android.annotation.SuppressLint
 import android.os.Bundle
-import android.content.Intent
-import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.webkit.JavascriptInterface
