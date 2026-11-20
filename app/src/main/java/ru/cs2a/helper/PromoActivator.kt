@@ -32,14 +32,14 @@ object PromoActivator {
     val mirrors = listOf("cs2a.run", "csgouv.run", "cs2run.bet", "cs2b.run", "cs2t.run", "runcase.org", "csgorun.games")
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
-        .callTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(45, TimeUnit.SECONDS)
+        .callTimeout(60, TimeUnit.SECONDS)
         .build()
 
     // Serialize dispatch only, never wait for the HTTP response while holding the queue.
     private val dispatchMutex = Mutex()
     private val retryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private const val MAX_TIMEOUT_RETRIES = 2
+    private const val MAX_TIMEOUT_RETRIES = 3
     private val pending = ConcurrentHashMap.newKeySet<String>()
     private val activatedCodesByAccount = HashMap<String, MutableSet<String>>()
     private val recentHistoryByAccount = HashMap<String, MutableMap<String, ArrayDeque<JSONObject>>>()
@@ -202,7 +202,7 @@ object PromoActivator {
                     }
                 } else {
                     pending.remove(code)
-                    onResult(Result(code, false, "ответ не получен: ${e.message ?: "ошибка сети"}", 0))
+                    onResult(Result(code, false, "не удалось получить ответ после ${MAX_TIMEOUT_RETRIES + 1} попыток: ${e.message ?: "ошибка сети"}", 0))
                 }
             }
 
