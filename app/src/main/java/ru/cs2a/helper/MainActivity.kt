@@ -618,10 +618,17 @@ class MainActivity : AppCompatActivity() {
             if (on) {
                 // Сразу пробуем участвовать во всех розыгрышах.
                 lifecycleScope.launch {
+                    Logs.add(this@MainActivity, "raffles", "Начато автоучастие: ${LOTTERIES.size} розыгрышей из всех временных блоков", "")
                     for (item in LOTTERIES) {
-                        Api.joinLottery(this@MainActivity, item)
+                        try {
+                            Api.joinLottery(this@MainActivity, item)
+                        } catch (e: Exception) {
+                            Logs.add(this@MainActivity, "raffles", "${item.name}: ошибка обработки — ${e.message ?: e.javaClass.simpleName}", "bad")
+                        }
                         refreshLogs()
                     }
+                    Logs.add(this@MainActivity, "raffles", "Автоучастие завершено: обработан полный список розыгрышей", "ok")
+                    refreshLogs()
                 }
                 for (item in LOTTERIES) AlarmScheduler.scheduleLottery(this, item.id, item.cycleMin)
             } else {
