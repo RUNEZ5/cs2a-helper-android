@@ -108,13 +108,20 @@ class SpamForegroundService : Service() {
                 val o = JSONObject(json)
                 if (o.optBoolean("ok")) {
                     fails = 0; sent++
+                    if (sent == 1 || sent % 10 == 0) {
+                        Logs.add(this@SpamForegroundService, "spam", "Отправлено сообщений: $sent", "ok")
+                    }
                     updateNotification("Работает… отправлено: $sent")
                 } else {
                     fails++
-                    val err = o.optString("error").ifBlank { "HTTP ${o.optInt("status")}" }
+                    val err = o.optString("error").ifBlank { "HTTP " + o.optInt("status") }
+                    Logs.add(this@SpamForegroundService, "spam", "Ошибка отправки ($fails/5): $err", "bad")
                     updateNotification("Ошибка ($fails/5): $err")
                 }
-            } catch (e: Exception) { fails++ }
+            } catch (e: Exception) {
+                fails++
+                Logs.add(this@SpamForegroundService, "spam", "Ошибка обработки ответа: " + (e.message ?: "неизвестная ошибка"), "bad")
+            }
             if (fails >= 5) {
                 stopSpamLoop("Остановлено: не удалось отправить несколько раз подряд")
             } else {
