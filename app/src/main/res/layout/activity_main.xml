@@ -95,13 +95,14 @@
             android:paddingStart="14dp"
             android:paddingEnd="14dp">
 
-            <include layout="@layout/panel_farm" android:id="@+id/panelFarm" />
-            <include layout="@layout/panel_raffles" android:id="@+id/panelRaffles" />
-            <include layout="@layout/panel_spam" android:id="@+id/panelSpam" />
-            <include layout="@layout/panel_promo" android:id="@+id/panelPromo" />
-            <include layout="@layout/panel_status" android:id="@+id/panelStatus" />
+            <include layout="@layout/panel_farm" android:id="@+id/panelFarm" android:visibility="gone" />
+            <include layout="@layout/panel_raffles" android:id="@+id/panelRaffles" android:visibility="gone" />
+            <include layout="@layout/panel_spam" android:id="@+id/panelSpam" android:visibility="gone" />
+            <include layout="@layout/panel_promo" android:id="@+id/panelPromo" android:visibility="gone" />
+            <include layout="@layout/panel_status" android:id="@+id/panelStatus" android:visibility="gone" />
             <LinearLayout
                 android:id="@+id/panelAbout"
+                android:visibility="gone"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
