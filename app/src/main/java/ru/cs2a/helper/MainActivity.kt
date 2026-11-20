@@ -268,6 +268,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun initializeMainUi() {
         mainUiActive = true
+        // Сначала скрываем все include-панели: в FrameLayout не должно оставаться
+        // видимой панели по умолчанию, особенно последней панели «О разработчике».
+        panels.values.forEach { it.visibility = View.GONE }
         showTab("farm")
         findViewById<Button>(R.id.tabFarm).setOnClickListener { showTab("farm") }
         findViewById<Button>(R.id.tabRaffles).setOnClickListener { showTab("raffles") }
@@ -317,7 +320,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showTab(name: String) {
-        for ((k, v) in panels) v.visibility = if (k == name) View.VISIBLE else View.GONE
+        // В FrameLayout одновременно должна отображаться только одна панель.
+        // Поднимаем выбранную панель наверх, чтобы скрытая вкладка «О разработчике»
+        // не могла перекрыть содержимое промокодов или другие разделы.
+        for ((k, v) in panels) {
+            v.visibility = if (k == name) View.VISIBLE else View.GONE
+        }
+        panels[name]?.bringToFront()
 
         val page = when (name) {
             "farm" -> "Ферма" to "Ежедневные награды и автоматизация"
