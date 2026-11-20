@@ -38,13 +38,13 @@ object PromoCodeParser {
         if (message.isBlank() || isDepositRelated(message)) return emptyList()
 
         val explicit = LinkedHashSet<String>()
-        entityTexts.forEach { raw -> normalize(raw)?.let(explicit::add) }
+        entityTexts.forEach { raw -> normalize(raw, allowThreeChar = true)?.let(explicit::add) }
         if (explicit.isNotEmpty()) return explicit.toList()
 
         val markdownCodes = LinkedHashSet<String>()
         Regex("[\\x60]([^\\x60\\n]{1,80})[\\x60]").findAll(message).forEach { match ->
             val codeText = match.groupValues[1]
-            if (!urlRegex.containsMatchIn(codeText)) normalize(codeText)?.let(markdownCodes::add)
+            if (!urlRegex.containsMatchIn(codeText)) normalize(codeText, allowThreeChar = true)?.let(markdownCodes::add)
         }
         if (markdownCodes.isNotEmpty()) return markdownCodes.toList()
 
@@ -72,7 +72,7 @@ object PromoCodeParser {
             if (candidateRegex.matches(searchableLine)) {
                 val hasDigit = searchableLine.any(Char::isDigit)
                 val hasUppercase = searchableLine.any { it.isLetter() && it.isUpperCase() }
-                if (hasDigit || hasUppercase) normalize(searchableLine)?.let(found::add)
+                if (hasDigit || hasUppercase) normalize(searchableLine, allowThreeChar = true)?.let(found::add)
             }
         }
         return found.toList()
