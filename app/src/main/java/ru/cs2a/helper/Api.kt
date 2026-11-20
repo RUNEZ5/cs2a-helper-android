@@ -5,7 +5,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import android.os.SystemClock
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -133,15 +132,14 @@ object Api {
     // Интервал считается между началами HTTP-запросов, чтобы параллельные
     // AlarmReceiver не отправляли несколько заявок одновременно.
     private val lotteryJoinMutex = Mutex()
-    private var lastLotteryRequestAt = 0L
-
     suspend fun joinLottery(ctx: android.content.Context, item: Lottery): Boolean =
         lotteryJoinMutex.withLock {
-            val now = SystemClock.elapsedRealtime()
-            val waitMs = 100L - (now - lastLotteryRequestAt)
-            if (lastLotteryRequestAt > 0L && waitMs > 0L) delay(waitMs)
-            lastLotteryRequestAt = SystemClock.elapsedRealtime()
-            performLotteryJoin(ctx, item)
+            try {
+                performLotteryJoin(ctx, item)
+            } finally {
+                // Пауза после завершения каждого запроса, включая неуспешный.
+                delay(100L)
+            }
         }
 
     private suspend fun performLotteryJoin(ctx: android.content.Context, item: Lottery): Boolean {
