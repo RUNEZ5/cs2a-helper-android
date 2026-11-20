@@ -71,27 +71,41 @@ class LoginActivity : AppCompatActivity() {
             CookieManager.getInstance().removeAllCookies {
                 CookieManager.getInstance().flush()
                 WebStorage.getInstance().deleteAllData()
-                TokenStore.clearJwt()
                 webView.stopLoading()
                 webView.clearCache(true)
                 webView.clearHistory()
                 webView.clearFormData()
-                webView.loadUrl(ORIGIN)
-                polling = true
-                handler.postDelayed({ pollToken() }, 1000)
-                AlertDialog.Builder(this)
-                    .setTitle("Вы вышли из аккаунта")
-                    .setMessage("Ключ уже привязан к одному аккаунту CSGORun. Выход не снимает эту привязку. Для дальнейших указаний свяжитесь с администратором канала.")
-                    .setPositiveButton("Связаться с администратором") { _, _ ->
-                        try {
-                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/runchikist?direct")))
-                        } catch (_: Exception) {
-                            Toast.makeText(this, "https://t.me/runchikist?direct", Toast.LENGTH_LONG).show()
-                        }
-                    }
-                    .setNegativeButton("Понятно", null)
-                    .show()
+                returnToLicenseScreen("Вы вышли из аккаунта. Для продолжения работы введите лицензионный ключ.")
             }
+        }
+    }
+
+    private fun returnToLicenseScreen(message: String) {
+        polling = false
+        TokenStore.clearJwt()
+        TokenStore.saveSecret("licenseToken", "")
+        TokenStore.setString("licenseLastValidated", "")
+        TokenStore.setBool("licenseIsTrial", false)
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        finish()
+    }
+
+    private fun handleAccountLinkResult(result: LicenseResponse) {
+        if (result.valid) {
+            Toast.makeText(
+                this,
+                result.message.ifBlank { "Аккаунт CSGORun привязан к лицензии ✅" },
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        Toast.makeText(this, result.message, Toast.LENGTH_LONG).show()
+        val permanentBindingError =
+            result.message.contains("уже привязана к другому аккаунту", ignoreCase = true) ||
+            result.message.contains("заблокирован", ignoreCase = true)
+        if (!result.networkError && permanentBindingError) {
+            returnToLicenseScreen("Лицензия не подходит для этого аккаунта. Введите действующий ключ.")
         }
     }
 
@@ -112,12 +126,7 @@ class LoginActivity : AppCompatActivity() {
                 accountSyncAttempted = true
                 lifecycleScope.launch {
                     val linked = LicenseManager.linkCsgorunAccount(this@LoginActivity)
-                    if (!linked.valid) {
-                        Toast.makeText(this@LoginActivity, linked.message, Toast.LENGTH_LONG).show()
-                        if (linked.message.contains("заблокирован", ignoreCase = true)) TokenStore.saveSecret("licenseToken", "")
-                    } else {
-                        Toast.makeText(this@LoginActivity, linked.message.ifBlank { "Аккаунт CSGORun привязан к лицензии ✅" }, Toast.LENGTH_LONG).show()
-                    }
+                    handleAccountLinkResult(linked)
                 }
             }
             if (polling) handler.postDelayed({ pollToken() }, 1000)
@@ -137,7 +146,7 @@ class LoginActivity : AppCompatActivity() {
                             if (TokenStore.saveCsgorunUsername(userId, username)) {
                                 lifecycleScope.launch {
                                     val linked = LicenseManager.linkCsgorunAccount(this@LoginActivity)
-                                    if (!linked.valid) Toast.makeText(this@LoginActivity, linked.message, Toast.LENGTH_LONG).show()
+                                    handleAccountLinkResult(linked)
                                 }
                             }
                         } catch (e: Exception) { }
@@ -153,12 +162,7 @@ class LoginActivity : AppCompatActivity() {
                                     accountSyncAttempted = true
                                     lifecycleScope.launch {
                                         val linked = LicenseManager.linkCsgorunAccount(this@LoginActivity)
-                                        if (!linked.valid) {
-                                            Toast.makeText(this@LoginActivity, linked.message, Toast.LENGTH_LONG).show()
-                                            if (linked.message.contains("заблокирован", ignoreCase = true)) TokenStore.saveSecret("licenseToken", "")
-                                        } else {
-                                            Toast.makeText(this@LoginActivity, linked.message.ifBlank { "Аккаунт CSGORun привязан к лицензии ✅" }, Toast.LENGTH_LONG).show()
-                                        }
+                                        handleAccountLinkResult(linked)
                                     }
                                 }
                             }
