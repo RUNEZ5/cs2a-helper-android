@@ -69,7 +69,10 @@ class PromoTelegramService : Service() {
                 startClient()
             }
             ACTION_SCAN_HISTORY -> {
-                if (historyScanStarted || TokenStore.getBool("promoScanRequested")) {
+                if (TokenStore.getBool("licenseIsTrial")) {
+                    TokenStore.setBool("promoScanRequested", false)
+                    status("Поиск по всей истории недоступен в тестовом периоде")
+                } else if (historyScanStarted || TokenStore.getBool("promoScanRequested")) {
                     status("Проверка истории уже запущена")
                 } else {
                     historyScanCancelled = false
@@ -210,6 +213,12 @@ class PromoTelegramService : Service() {
     }
 
     private fun scanHistory() {
+        if (TokenStore.getBool("licenseIsTrial")) {
+            TokenStore.setBool("promoScanRequested", false)
+            historyScanStarted = false
+            status("Поиск по всей истории недоступен в тестовом периоде")
+            return
+        }
         if (historyScanStarted || chatId == 0L) return
         historyScanStarted = true
         historyScanCancelled = false
@@ -395,6 +404,7 @@ class PromoTelegramService : Service() {
             context.startService(Intent(context, PromoTelegramService::class.java).setAction(ACTION_MONITOR_STOP))
         }
         fun scanHistory(context: Context) {
+            if (TokenStore.getBool("licenseIsTrial")) return
             context.startService(Intent(context, PromoTelegramService::class.java).setAction(ACTION_SCAN_HISTORY))
         }
         fun startMonitoring(context: Context) {

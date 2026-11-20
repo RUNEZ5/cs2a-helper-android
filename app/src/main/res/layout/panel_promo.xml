@@ -25,12 +25,12 @@
  <TextView style="@style/CardLabel" android:text="Параметры активации" android:layout_marginTop="18dp"/>
  <TextView style="@style/CardLabel" android:text="Зеркало для активации · выберите вручную"/>
  <Spinner android:id="@+id/promoMirror" android:layout_width="match_parent" android:layout_height="48dp"/>
- <TextView style="@style/CardLabel" android:text="Период проверки истории · дней"/>
+ <TextView android:id="@+id/promoScanDaysLabel" style="@style/CardLabel" android:text="Период проверки истории · дней"/>
  <EditText android:id="@+id/promoScanDays" android:layout_width="match_parent" android:layout_height="48dp" android:inputType="number" android:singleLine="true" android:hint="Например, 365" android:textColor="@color/text" android:background="@color/bg" android:paddingHorizontal="12dp"/>
  <TextView style="@style/CardLabel" android:text="Интервал между активациями · секунд"/>
  <EditText android:id="@+id/promoActivationInterval" android:layout_width="match_parent" android:layout_height="48dp" android:inputType="number" android:singleLine="true" android:hint="Например, 1" android:textColor="@color/text" android:background="@color/bg" android:paddingHorizontal="12dp"/>
  <Button android:id="@+id/promoStartBtn" android:layout_width="match_parent" android:layout_height="50dp" android:text="Сохранить настройки и подключить Telegram" android:layout_marginTop="14dp"/>
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginTop="16dp" android:padding="12dp" android:background="@color/card">
+ <LinearLayout android:id="@+id/promoHistoryScanCard" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginTop="16dp" android:padding="12dp" android:background="@color/card">
   <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="ПРОВЕРКА ИСТОРИИ" android:textColor="@color/accent" android:textStyle="bold" android:textSize="12sp"/>
   <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Поиск промокодов в предыдущих публикациях." android:textColor="@color/textDim" android:textSize="12sp"/>
   <Button android:id="@+id/promoScanBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Начать проверку промо" android:layout_marginTop="8dp"/>

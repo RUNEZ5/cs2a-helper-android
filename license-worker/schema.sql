@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS license_keys (
   activation_state TEXT NOT NULL CHECK (activation_state IN ('available','consumed','deactivated')),
   status TEXT NOT NULL CHECK (status IN ('active','blocked')),
   duration_days INTEGER,
+  is_trial INTEGER NOT NULL DEFAULT 0 CHECK (is_trial IN (0,1)),
   created_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS license_activations (

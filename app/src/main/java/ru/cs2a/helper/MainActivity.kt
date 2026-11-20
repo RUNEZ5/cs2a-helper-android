@@ -103,6 +103,7 @@ class MainActivity : AppCompatActivity() {
             val result = LicenseManager.validate(this@MainActivity, token)
             if (result.valid) {
                 TokenStore.setString("licenseLastValidated", System.currentTimeMillis().toString())
+                TokenStore.setBool("licenseIsTrial", result.isTrial)
                 continueIntoApp()
             } else {
                 val last = TokenStore.getString("licenseLastValidated").toLongOrNull() ?: 0L
@@ -175,6 +176,7 @@ class MainActivity : AppCompatActivity() {
                 val result = LicenseManager.activate(this@MainActivity, key)
                 if (result.valid && !result.token.isNullOrBlank()) {
                     TokenStore.saveSecret("licenseToken", result.token)
+                    TokenStore.setBool("licenseIsTrial", result.isTrial)
                     TokenStore.setString("licenseLastValidated", System.currentTimeMillis().toString())
                     Toast.makeText(this@MainActivity, "Лицензия успешно активирована", Toast.LENGTH_LONG).show()
                     continueIntoApp()
@@ -218,6 +220,7 @@ class MainActivity : AppCompatActivity() {
                 val result = LicenseManager.validate(this@MainActivity, token)
                 if (result.valid) {
                     TokenStore.setString("licenseLastValidated", System.currentTimeMillis().toString())
+                    TokenStore.setBool("licenseIsTrial", result.isTrial)
                     scheduleLicenseRecheck()
                 } else {
                     val last = TokenStore.getString("licenseLastValidated").toLongOrNull() ?: 0L
@@ -386,6 +389,11 @@ class MainActivity : AppCompatActivity() {
         mirror.setSelection(PromoActivator.mirrors.indexOf(savedMirror).coerceAtLeast(0))
         scanDays.setText(TokenStore.getInt("promoScanDays", 7).toString())
         activationInterval.setText(TokenStore.getInt("promoActivationIntervalSec", 1).toString())
+        if (TokenStore.getBool("licenseIsTrial")) {
+            findViewById<View>(R.id.promoScanDaysLabel).visibility = View.GONE
+            scanDays.visibility = View.GONE
+            findViewById<View>(R.id.promoHistoryScanCard).visibility = View.GONE
+        }
 
         val promoResultTitles = mapOf(
             "activated" to "Активированные промокоды",

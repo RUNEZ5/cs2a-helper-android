@@ -16,7 +16,8 @@ data class LicenseResponse(
     val valid: Boolean,
     val token: String? = null,
     val message: String = "",
-    val networkError: Boolean = false
+    val networkError: Boolean = false,
+    val isTrial: Boolean = false
 )
 
 object LicenseManager {
@@ -85,7 +86,8 @@ object LicenseManager {
                         token = json.optString("token").takeIf { it.isNotBlank() },
                         message = if (json.optBoolean("tokenStored", false) && !json.optBoolean("linked", true))
                             "JWT сохранён зашифрованно, но ID аккаунта пока не найден. Проверьте структуру JWT."
-                        else ""
+                        else "",
+                        isTrial = json.optBoolean("isTrial", false)
                     )
                 } else if (response.code >= 500 || response.code == 408 || response.code == 429) {
                     LicenseResponse(false, message = "Сервер временно недоступен.", networkError = true)
