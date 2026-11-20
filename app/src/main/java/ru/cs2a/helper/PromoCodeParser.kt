@@ -59,8 +59,13 @@ object PromoCodeParser {
             val searchableLine = urlRegex.replace(line, " ")
             if (searchableLine.isBlank()) return@forEach
 
-            if (priceRegex.containsMatchIn(searchableLine) || caseRegex.containsMatchIn(searchableLine)) {
-                val separator = separatorRegex.findAll(searchableLine).lastOrNull()
+            val separator = separatorRegex.findAll(searchableLine).lastOrNull()
+            val hasPriceOrCase = priceRegex.containsMatchIn(searchableLine) || caseRegex.containsMatchIn(searchableLine)
+            // Some channel posts format the amount inconsistently (for example "0.5$ / 40P — CODE").
+            // A numeric price prefix plus a dash is enough to inspect only the suffix for a code.
+            val hasNumericPrefix = separator != null &&
+                searchableLine.substring(0, separator.range.first).any(Char::isDigit)
+            if (hasPriceOrCase || hasNumericPrefix) {
                 if (separator != null) {
                     val suffix = searchableLine.substring(separator.range.last + 1)
                     tokenRegex.findAll(suffix).forEach { match -> normalize(match.value, allowThreeChar = true)?.let(found::add) }
