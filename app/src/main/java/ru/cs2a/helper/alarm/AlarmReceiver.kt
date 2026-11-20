@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import ru.cs2a.helper.Api
 import ru.cs2a.helper.LOTTERIES
+import ru.cs2a.helper.Logs
 import ru.cs2a.helper.TokenStore
 
 class AlarmReceiver : BroadcastReceiver() {
