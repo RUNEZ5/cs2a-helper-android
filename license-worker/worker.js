@@ -151,7 +151,7 @@ async function admin(request, env, url) {
     await audit(env, id, "created", days === null ? "perpetual" : days + " days");
     return json({ id, key, durationDays: days, createdAt: created }, 201);
   }
-  const deleteMatch = url.pathname.match(/^\\/admin\\/keys\\/([a-f0-9]+)\\/delete$/);
+  const deleteMatch = url.pathname.match(/^\/admin\/keys\/([a-f0-9]+)\/delete$/);
   if (request.method === "POST" && deleteMatch) {
     const id = deleteMatch[1];
     const exists = await env.DB.prepare("SELECT id FROM license_keys WHERE id=?").bind(id).first();
