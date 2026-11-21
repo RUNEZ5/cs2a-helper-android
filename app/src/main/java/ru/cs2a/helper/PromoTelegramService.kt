@@ -32,6 +32,20 @@ class PromoTelegramService : Service() {
     private var channelSearchStarted = false
     private var historyPagesScanned = 0
     private val historyCandidates = LinkedHashSet<String>()
+    // TDLib may emit both a new-message update and one or more edit updates for one post.
+    // Remember message-id/code pairs to avoid submitting the same post repeatedly.
+    private val processedLiveMessageCodes = LinkedHashSet<String>()
+
+    @Synchronized
+    private fun markLiveMessageCode(messageId: Long, code: String): Boolean {
+        val key = "$messageId:$code"
+        if (!processedLiveMessageCodes.add(key)) return false
+        while (processedLiveMessageCodes.size > 5000) {
+            val iterator = processedLiveMessageCodes.iterator()
+            if (iterator.hasNext()) { iterator.next(); iterator.remove() } else break
+        }
+        return true
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -323,12 +337,14 @@ class PromoTelegramService : Service() {
     }
 
     private suspend fun processMessage(message: TdApi.Message, fromHistory: Boolean) {
-        processCodes(extractCodes(message), fromHistory)
+        processCodes(extractCodes(message), fromHistory, if (fromHistory) null else message.id)
     }
 
-    private suspend fun processCodes(codes: List<String>, fromHistory: Boolean) {
+    private suspend fun processCodes(codes: List<String>, fromHistory: Boolean, messageId: Long? = null) {
         for (code in codes) {
             if (fromHistory && historyScanCancelled) return
+            if (fromHistory && PromoActivator.historyAttempted(code)) continue
+            if (!fromHistory && messageId != null && !markLiveMessageCode(messageId, code)) continue
             if (PromoActivator.alreadyProcessed(code)) continue
             if (!fromHistory) {
                 Logs.add(this@PromoTelegramService, "promo", "Найден код: $code · новый пост", "ok")

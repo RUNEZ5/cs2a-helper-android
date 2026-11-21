@@ -42,6 +42,7 @@ object PromoActivator {
     private const val MAX_TIMEOUT_RETRIES = 3
     private val pending = ConcurrentHashMap.newKeySet<String>()
     private val activatedCodesByAccount = HashMap<String, MutableSet<String>>()
+    private val attemptedCodesByAccount = HashMap<String, MutableSet<String>>()
     private val recentHistoryByAccount = HashMap<String, MutableMap<String, ArrayDeque<JSONObject>>>()
     @Volatile private var lastDispatchAt = 0L
     @Volatile private var blockedUntil = 0L
@@ -98,8 +99,10 @@ object PromoActivator {
             if (queue.size == 100) queue.removeFirst()
             queue.addLast(item)
         }
+        val code = item.optString("code")
+        if (code.isNotBlank()) attemptedCodesByAccount.getOrPut(accountKey) { HashSet() }.add(code)
         if (item.optBoolean("activated", false)) {
-            activatedCodesByAccount.getOrPut(accountKey) { HashSet() }.add(item.optString("code"))
+            activatedCodesByAccount.getOrPut(accountKey) { HashSet() }.add(code)
         }
     }
 
@@ -111,8 +114,29 @@ object PromoActivator {
         TokenStore.setString(historyKey(jwt), "")
         TokenStore.setBool(historyMigrationKey(jwt), true)
         activatedCodesByAccount.remove(historyKey(jwt))
+        attemptedCodesByAccount.remove(historyKey(jwt))
         recentHistoryByAccount.remove(historyKey(jwt))
         return true
+    }
+
+    /** True when any terminal result for this code is already present in this account's history. */
+    @Synchronized
+    fun historyAttempted(code: String): Boolean {
+        val jwt = TokenStore.jwt() ?: return false
+        val accountKey = historyKey(jwt)
+        val known = attemptedCodesByAccount[accountKey] ?: run {
+            val codes = HashSet<String>()
+            val file = historyFile(jwt)
+            if (file != null && file.exists()) file.forEachLine(Charsets.UTF_8) { line ->
+                if (line.isNotBlank()) try {
+                    val item = JSONObject(line)
+                    item.optString("code").takeIf { it.isNotBlank() }?.let(codes::add)
+                } catch (_: Exception) { }
+            }
+            attemptedCodesByAccount[accountKey] = codes
+            codes
+        }
+        return code in known
     }
 
     @Synchronized
@@ -135,7 +159,9 @@ object PromoActivator {
     }
 
     suspend fun enqueue(code: String, mirror: String, onResult: (Result) -> Unit): Result = withContext(Dispatchers.IO) {
-        val normalized = PromoCodeParser.extract(code).singleOrNull()
+        // A code supplied by Telegram's explicit code entity may legitimately be only 3 chars.
+        // Re-validate it as an explicit candidate so the enqueue stage doesn't discard it.
+        val normalized = PromoCodeParser.extract(code, listOf(code)).singleOrNull()
             ?: return@withContext Result(code, false, "отклонено: текст не распознан как промокод", 0)
         if (mirror !in mirrors) return@withContext Result(normalized, false, "неизвестное зеркало", 0)
         val jwt = TokenStore.jwt() ?: return@withContext Result(normalized, false, Api.AUTH_MSG, 0)
@@ -185,11 +211,21 @@ object PromoActivator {
     ) {
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                val isTimeout = e is java.net.SocketTimeoutException ||
+                val isRetryableNetworkError = e is java.net.SocketTimeoutException ||
+                    e is java.net.UnknownHostException ||
+                    e is java.net.ConnectException ||
+                    e is java.net.SocketException ||
                     (e.message?.contains("timeout", ignoreCase = true) == true)
-                if (isTimeout && attempt < MAX_TIMEOUT_RETRIES) {
-                    onResult(Result(code, false, "таймаут; повторная попытка ${attempt + 1}/$MAX_TIMEOUT_RETRIES", 0))
+                if (isRetryableNetworkError && attempt < MAX_TIMEOUT_RETRIES) {
+                    val reason = when (e) {
+                        is java.net.UnknownHostException -> "ошибка DNS"
+                        is java.net.SocketTimeoutException -> "таймаут"
+                        is java.net.ConnectException -> "ошибка подключения"
+                        else -> "сетевая ошибка"
+                    }
+                    onResult(Result(code, false, "$reason; повторная попытка ${attempt + 1}/$MAX_TIMEOUT_RETRIES", 0))
                     retryScope.launch {
+                        delay(1_000L * (1 shl attempt))
                         dispatchMutex.withLock {
                             while (true) {
                                 val waitMs = maxOf(lastDispatchAt + minRequestIntervalMs(), blockedUntil) - System.currentTimeMillis()
@@ -202,7 +238,14 @@ object PromoActivator {
                     }
                 } else {
                     pending.remove(code)
-                    onResult(Result(code, false, "не удалось получить ответ после ${MAX_TIMEOUT_RETRIES + 1} попыток: ${e.message ?: "ошибка сети"}", 0))
+                    val reason = e.message ?: e.javaClass.simpleName
+                    val message = if (isRetryableNetworkError) {
+                        "сетевая ошибка после ${attempt + 1} попыток: $reason"
+                    } else {
+                        "сетевая ошибка без повтора: $reason"
+                    }
+                    remember(code, mirror, false, message, jwt)
+                    onResult(Result(code, false, message, 0))
                 }
             }
 
