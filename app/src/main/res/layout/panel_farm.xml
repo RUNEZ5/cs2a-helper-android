@@ -4,8 +4,8 @@
  android:background="@drawable/panel_surface" android:padding="18dp" android:layout_marginBottom="10dp">
  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="🐔  Ежедневная ферма" android:textColor="@color/text" android:textStyle="bold" android:textSize="19sp"/>
  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Получение яйца каждый день после 03:00 МСК" android:textColor="@color/textDim" android:textSize="12sp"/>
- <TextView style="@style/CardLabel" android:text="Выбор яйца" android:layout_marginTop="16dp"/>
- <Spinner android:id="@+id/farmEggSpinner" android:layout_width="match_parent" android:layout_height="48dp"/>
+ <TextView style="@style/CardLabel" android:text="Тип яйца определяется автоматически" android:layout_marginTop="16dp"/>
+ <Spinner android:id="@+id/farmEggSpinner" android:layout_width="match_parent" android:layout_height="48dp" android:visibility="gone"/>
  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingVertical="10dp">
   <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Автозабор яйца" android:textColor="@color/text" android:textStyle="bold"/>
@@ -20,7 +20,7 @@
   </LinearLayout>
   <Switch android:id="@+id/farmSellSwitch" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
  </LinearLayout>
- <Button android:id="@+id/farmClaimBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Забрать яйцо сейчас" android:layout_marginTop="8dp"/>
+ <Button android:id="@+id/farmClaimBtn" android:layout_width="match_parent" android:layout_height="48dp" android:text="Проверить и открыть яйцо" android:layout_marginTop="8dp"/>
  <TextView style="@style/CardLabel" android:text="Журнал фермы" android:layout_marginTop="18dp"/>
  <androidx.core.widget.NestedScrollView android:layout_width="match_parent" android:layout_height="180dp" android:fillViewport="true" android:overScrollMode="ifContentScrolls">
   <TextView android:id="@+id/farmLog" style="@style/LogText" android:text=""/>
