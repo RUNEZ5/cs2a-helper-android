@@ -225,7 +225,7 @@ object PromoActivator {
                     }
                     onResult(Result(code, false, "$reason; повторная попытка ${attempt + 1}/$MAX_TIMEOUT_RETRIES", 0))
                     retryScope.launch {
-                        delay(1_000L shl attempt)
+                        delay(1_000L * (1 shl attempt))
                         dispatchMutex.withLock {
                             while (true) {
                                 val waitMs = maxOf(lastDispatchAt + minRequestIntervalMs(), blockedUntil) - System.currentTimeMillis()
