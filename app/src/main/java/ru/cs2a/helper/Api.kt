@@ -132,7 +132,7 @@ object Api {
         }
 
         Logs.add(ctx, "farm", "Яйцо забрано: $slug (tier $tier) — открываю", "ok")
-        val opened = openFarmBox(boxId, slug)
+        val opened = openFarmBox(ctx, boxId, slug)
         if (opened == null) {
             Logs.add(ctx, "farm", "Яйцо забрано, но открыть кейс $slug не удалось", "bad")
             return@withLock false
@@ -148,11 +148,11 @@ object Api {
     }
 
     // Возвращает (userItemId, имя предмета) или null при ошибке.
-    private suspend fun openFarmBox(boxId: Int, slug: String): Pair<Int, String?>? {
+    private suspend fun openFarmBox(ctx: android.content.Context, boxId: Int, slug: String): Pair<Int, String?>? {
         val show = call("/v1/box/$slug/show", "GET")
         val showError = apiError(show)
         if (showError != null) {
-            Logs.add(TokenStore.appContext() ?: return null, "farm", "Не удалось получить параметры кейса: $showError", "bad")
+            Logs.add(ctx, "farm", "Не удалось получить параметры кейса: $showError", "bad")
             return null
         }
         val shown = unwrap(show.data)
