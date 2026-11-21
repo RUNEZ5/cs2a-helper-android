@@ -13,8 +13,8 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 // Повторяет authedFetch() из background.js: те же запросы, что шлёт сам сайт,
-// с заголовком Authorization: JWT <токен>. Если токен протух (401/Unauthorized) и обновить
-// его негде (нет живой вкладки, как в расширении) — просим пользователя перезайти в приложении.
+// с заголовком Authorization: JWT <токен>. Если токен протух и обновить его негде,
+// просим пользователя перезайти в приложении.
 object Api {
     const val AUTH_MSG = "нет авторизации (токен устарел) — войдите заново в разделе «Статус»"
     private val JSON = "application/json".toMediaType()
@@ -63,57 +63,117 @@ object Api {
         return inner ?: d
     }
 
-    // ---------------- ферма ----------------
-    suspend fun farmEggAttempt(ctx: android.content.Context): Boolean {
-        val tier = TokenStore.getInt("farmTier", DEFAULT_FARM_TIER)
-        val r = call("/v1/farm/eggs/daily/claim", "POST", JSONObject().put("tier", tier))
-        if (r.error != null && r.status == 0) { Logs.add(ctx, "farm", "Яйцо: ошибка — ${r.error}", "bad"); return false }
-        val body = r.data
-        val egg = unwrap(body)
-        val err = when {
-            r.unauthorized -> AUTH_MSG
-            body?.optBoolean("success", true) == false -> body.optString("error").ifBlank { "не удалось забрать" }
-            egg.has("error") -> egg.optString("error")
-            else -> null
+    private fun apiError(r: ApiResult): String? {
+        if (r.error != null) return r.error
+        if (r.unauthorized) return AUTH_MSG
+        if (r.status !in 200..299) return "HTTP ${r.status}"
+        val root = r.data ?: return "пустой ответ сервера"
+        if (root.optBoolean("success", true) == false) {
+            return root.optString("error").ifBlank { "сервер отклонил запрос" }
         }
-        val ok = r.status in 0..399 && r.status != 0 && err == null
-        if (!ok) {
-            Logs.add(ctx, "farm", "Яйцо: ${err ?: "HTTP ${r.status}"}", "bad")
-            return false
-        }
-        Logs.add(ctx, "farm", "Яйцо забрано ✅ (tier ${egg.optInt("tier")}, ${egg.optString("slug")})", "ok")
-        val boxId = egg.optInt("boxId", 0)
-        val slug = egg.optString("slug", "")
-        if (boxId != 0 && slug.isNotBlank()) {
-            val opened = openFarmBox(boxId, slug)
-            if (opened != null) {
-                Logs.add(ctx, "farm", "Кейс открыт ✅" + (opened.second?.let { " → $it" } ?: ""), "ok")
-                if (TokenStore.getBool("farmSellOpened") && opened.first != 0) {
-                    val s = sellFarmItem(opened.first)
-                    if (s) Logs.add(ctx, "farm", "Продано ✅", "ok") else Logs.add(ctx, "farm", "Продажа: не удалось", "bad")
-                }
-            } else {
-                Logs.add(ctx, "farm", "Кейс: не удалось открыть", "bad")
-            }
-        }
-        return true
+        val data = unwrap(root)
+        if (data.has("error")) return data.optString("error").ifBlank { "ошибка сервера" }
+        return null
     }
 
-    // возвращает (userItemId, имя предмета) или null при ошибке
-    private suspend fun openFarmBox(boxId: Int, slug: String): Pair<Int, String?>? {
-        var boxAmount = 0
-        val show = call("/v1/box/$slug/show", "GET")
-        val shown = unwrap(show.data)
-        if (shown.has("price")) boxAmount = shown.optInt("price", 0)
-        else if (shown.has("amount")) boxAmount = shown.optInt("amount", 0)
-        else if (shown.has("boxAmount")) boxAmount = shown.optInt("boxAmount", 0)
+    // ---------------- ферма ----------------
+    // Защита от одновременного ручного нажатия и срабатывания будильника.
+    private val farmEggMutex = Mutex()
 
-        val body = JSONObject().put("boxId", boxId).put("count", 1).put("duration", 5000).put("isFree", true).put("boxAmount", boxAmount)
-        val r = call("/v1/box/open", "POST", body)
-        if (r.status !in 0..399 || r.status == 0 || r.unauthorized) return null
-        val it = unwrap(r.data)
-        val won = it.optJSONObject("item") ?: it.optJSONObject("skin")
-            ?: it.optJSONArray("items")?.optJSONObject(0)
+    suspend fun farmEggAttempt(ctx: android.content.Context): Boolean = farmEggMutex.withLock {
+        // Сначала читаем фактическое состояние аккаунта. Никакой выбранный вручную tier
+        // или локальный каталог не должен определять, какое яйцо можно забрать.
+        val stateResult = call("/v1/farm/state", "GET")
+        val stateError = apiError(stateResult)
+        if (stateError != null) {
+            Logs.add(ctx, "farm", "Не удалось проверить ферму: $stateError", "bad")
+            return@withLock false
+        }
+
+        val state = unwrap(stateResult.data)
+        val dailyEgg = state.optJSONObject("dailyEgg")
+        if (dailyEgg == null) {
+            val firstPending = state.optBoolean("firstEggPending", false)
+            val reason = if (firstPending) "ожидается первое яйцо аккаунта" else "сервер не вернул dailyEgg"
+            Logs.add(ctx, "farm", "Яйцо не найдено: $reason", "")
+            return@withLock false
+        }
+
+        val status = dailyEgg.optString("status", "unknown").lowercase()
+        val tier = dailyEgg.optInt("tier", -1)
+        val boxId = dailyEgg.optInt("boxId", 0)
+        val slug = dailyEgg.optString("slug", "").trim()
+        val nextEggAt = dailyEgg.optString("nextEggAt", "")
+
+        if (status != "ready") {
+            val message = when (status) {
+                "opened" -> "Ежедневное яйцо уже открыто"
+                "claimed" -> "Яйцо уже забрано; повторное получение пропущено"
+                "expired" -> "Срок получения яйца истёк"
+                else -> "Яйцо пока недоступно (status: $status)"
+            }
+            Logs.add(ctx, "farm", message + if (nextEggAt.isNotBlank()) "; следующее: $nextEggAt" else "", "")
+            return@withLock false
+        }
+
+        if (tier < 0 || boxId <= 0 || slug.isBlank()) {
+            Logs.add(ctx, "farm", "Сервер сообщил status=ready, но не вернул корректные tier/boxId/slug", "bad")
+            return@withLock false
+        }
+
+        Logs.add(ctx, "farm", "Найдено доступное яйцо: $slug (tier $tier, boxId $boxId)", "ok")
+
+        // Claim использует tier из dailyEgg текущего аккаунта, а не сохранённую настройку.
+        val claim = call("/v1/farm/eggs/daily/claim", "POST", JSONObject().put("tier", tier))
+        val claimError = apiError(claim)
+        if (claimError != null) {
+            Logs.add(ctx, "farm", "Не удалось забрать яйцо $slug: $claimError", "bad")
+            return@withLock false
+        }
+
+        Logs.add(ctx, "farm", "Яйцо забрано: $slug (tier $tier) — открываю", "ok")
+        val opened = openFarmBox(boxId, slug)
+        if (opened == null) {
+            Logs.add(ctx, "farm", "Яйцо забрано, но открыть кейс $slug не удалось", "bad")
+            return@withLock false
+        }
+
+        Logs.add(ctx, "farm", "Кейс открыт ✅" + (opened.second?.let { " → $it" } ?: ""), "ok")
+        if (TokenStore.getBool("farmSellOpened") && opened.first != 0) {
+            val sold = sellFarmItem(opened.first)
+            if (sold) Logs.add(ctx, "farm", "Предмет продан ✅", "ok")
+            else Logs.add(ctx, "farm", "Продажа предмета: не удалось", "bad")
+        }
+        true
+    }
+
+    // Возвращает (userItemId, имя предмета) или null при ошибке.
+    private suspend fun openFarmBox(boxId: Int, slug: String): Pair<Int, String?>? {
+        val show = call("/v1/box/$slug/show", "GET")
+        val showError = apiError(show)
+        if (showError != null) {
+            Logs.add(TokenStore.appContext() ?: return null, "farm", "Не удалось получить параметры кейса: $showError", "bad")
+            return null
+        }
+        val shown = unwrap(show.data)
+        val boxAmount = when {
+            shown.has("price") -> shown.optInt("price", 0)
+            shown.has("amount") -> shown.optInt("amount", 0)
+            else -> shown.optInt("boxAmount", 0)
+        }
+
+        val body = JSONObject()
+            .put("boxId", boxId)
+            .put("count", 1)
+            .put("duration", 5000)
+            .put("isFree", true)
+            .put("boxAmount", boxAmount)
+        val result = call("/v1/box/open", "POST", body)
+        if (apiError(result) != null) return null
+
+        val data = unwrap(result.data)
+        val won = data.optJSONObject("item") ?: data.optJSONObject("skin")
+            ?: data.optJSONArray("items")?.optJSONObject(0)
         val name = won?.optString("name")?.ifBlank { null }
             ?: won?.optString("marketHashName")?.ifBlank { null }
             ?: won?.optString("localizationKey")?.ifBlank { null }
@@ -122,22 +182,21 @@ object Api {
     }
 
     private suspend fun sellFarmItem(userItemId: Int): Boolean {
-        val body = JSONObject().put("userItemIds", org.json.JSONArray().put(userItemId)).put("wishItemIds", org.json.JSONArray())
-        val r = call("/marketplace/exchange-items", "POST", body)
-        return r.status in 0..399 && r.status != 0 && !r.unauthorized
+        val body = JSONObject()
+            .put("userItemIds", org.json.JSONArray().put(userItemId))
+            .put("wishItemIds", org.json.JSONArray())
+        val result = call("/marketplace/exchange-items", "POST", body)
+        return apiError(result) == null
     }
 
     // ---------------- розыгрыши ----------------
     // Единая очередь для ручного участия, массового автоучастия и будильников.
-    // Интервал считается между началами HTTP-запросов, чтобы параллельные
-    // AlarmReceiver не отправляли несколько заявок одновременно.
     private val lotteryJoinMutex = Mutex()
     suspend fun joinLottery(ctx: android.content.Context, item: Lottery): Boolean =
         lotteryJoinMutex.withLock {
             try {
                 performLotteryJoin(ctx, item)
             } finally {
-                // Пауза после завершения каждого запроса, включая неуспешный.
                 delay(100L)
             }
         }
@@ -150,8 +209,6 @@ object Api {
         when {
             r.unauthorized -> { ok = false; msg = "ошибка: $AUTH_MSG" }
             d.optString("error") == "CONDITION_ERROR" -> { ok = false; msg = "условия розыгрыша ещё не выполнены ⚠️" }
-            // 403 от сайта на этот эндпоинт в наблюдаемых случаях означает именно
-            // «условия/лимит участия ещё не выполнены», а не ошибку авторизации.
             r.status == 403 -> { ok = false; msg = "условия розыгрыша ещё не выполнены (403) ⚠️" }
             d.optBoolean("success", true) == false || d.has("error") -> { ok = false; msg = "ошибка: ${d.optString("error").ifBlank { "HTTP ${r.status}" }}" }
             r.status !in 0..399 || r.status == 0 -> { ok = false; msg = "ошибка: HTTP ${r.status}" }
